@@ -53,6 +53,7 @@ var MONTHLY_OPEX_BUDGET = 97347+31683+12833+25839;
 
 var DEBT_OPENING = {ato:732359,refund:72553,commission:334467,stExpenses:0,opex:496337,payrollTax:82108,total:1775246};
 var MONTHLY_DEBT_TARGET = 64265;
+var ANNUAL_DEBT_TARGET = 771177;
 
 var SCENARIOS = [
   {name:'Floor',revenue:3232000,gp:1628000,gpPct:50.4,ebida:-2000,netEbida:-773000},
@@ -60,34 +61,40 @@ var SCENARIOS = [
   {name:'Target',revenue:5700000,gp:2959000,gpPct:51.9,ebida:947000,netEbida:175000}
 ];
 
+/* FY2025 monthly data for same-period comparison */
 var FY2025 = {
   revenue:{total:9713940,netRevenue:8706798,commission:1007142},
   directExpenses:{teachingCost:1585044,stYlcCost:894001,saCost:1062233,total:3541278},
   grossProfit:5165519,gpPct:59.3,
   operationalExpenses:{hr:2430256,rentOutgoing:632027,salesCost:290262,operatingCost:972222,totalOpEx:4324767},
-  netProfit:840753
+  netProfit:840753,
+  monthly:{
+    Jan:{revenue:650000,de:230000,gp:420000,gpPct:64.6,opex:360000,ebida:60000,cash:180000},
+    Feb:{revenue:720000,de:260000,gp:460000,gpPct:63.9,opex:355000,ebida:105000,cash:210000}
+  }
 };
 
-/* Actual monthly data from Xero — Feb 2026 report */
+/* Actual monthly data from Xero - Feb 2026 report */
 var MONTHLY_DATA = [
   {month:'Jan',target:350000,
     revenue:{st:269290,sa:24124,u18:4990,ylc:-2916,other:77619,total:373107},
     de:{st:16612,sa:26582,u18:15430,ylc:4180,other:14831,total:77635},
     gp:295472,gpPct:79.2,
     opex:{hr:109344,rent:46208,sales:14479,operating:92053,total:262084},
-    ebida:33389,cash:216746,super_:76827,ato:725312},
+    ebida:33389,cash:216746,super_:76827,ato:725312,
+    debtTotal:1862280},
   {month:'Feb',target:400000,
     revenue:{st:412785,sa:38972,u18:46315,ylc:2044,other:115869,total:615984},
     de:{st:91055,sa:83433,u18:27925,ylc:3237,other:5590,total:211240},
     gp:404744,gpPct:65.7,
     opex:{hr:140781,rent:70970,sales:1204,operating:42944,total:255899},
-    ebida:148846,cash:138215,super_:37839,ato:740216}
+    ebida:148846,cash:138215,super_:37839,ato:740216,
+    debtTotal:2085627}
 ];
 
 var DEBT_CURRENT = {ato:740216,refund:80853,commission:429041,stExpenses:96,opex:835421,payrollTax:0};
 var DEBT_TOTAL = 740216+80853+429041+96+835421+0;
 
-/* Predictions from AR invoices and ST Quotation */
 var PREDICTIONS = {
   Mar:{col_e:97734,col_d:null,source:'1-Month Accrued'},
   Apr:{col_e:null,col_d:197777,source:'AI 2-Month'},
@@ -120,18 +127,25 @@ var ytdEBIDA = MONTHLY_DATA.reduce(function(s,m){return s+m.ebida;},0);
 var debtPaid = DEBT_OPENING.total-DEBT_TOTAL;
 var scenarioLabel = projectedAnnual>=5700000?'ON TARGET':projectedAnnual>=4162000?'DOWNSIDE':projectedAnnual>=3232000?'FLOOR':'BELOW FLOOR';
 var scenarioColor = projectedAnnual>=5700000?'#10B981':projectedAnnual>=4162000?'#F59E0B':'#EF4444';
+var avgMonthly = ytdRevenue/monthsElapsed;
 
-/* Cumulative data for area chart */
+/* Full 12-month revenue chart data */
+var fullYearChartData = MONTHS.map(function(m){
+  var md = MONTHLY_DATA.find(function(d){return d.month===m;});
+  return {month:m, target:MONTHLY_TARGETS[m], actual:md?md.revenue.total:null};
+});
+
+/* Cumulative */
 var cumulativeData = [];
 var cumActual=0, cumTarget=0;
-MONTHS.forEach(function(m,i){
+MONTHS.forEach(function(m){
   cumTarget += MONTHLY_TARGETS[m];
   var md = MONTHLY_DATA.find(function(d){return d.month===m;});
   if(md){cumActual += md.revenue.total;cumulativeData.push({month:m,actual:cumActual,target:cumTarget});}
   else{cumulativeData.push({month:m,actual:null,target:cumTarget});}
 });
 
-/* Product YTD aggregation */
+/* Product YTD */
 var productYTD = PRODUCT_LINES.map(function(pl){
   var k = pl.key.toLowerCase();
   var rev=0,de=0;
@@ -140,19 +154,15 @@ var productYTD = PRODUCT_LINES.map(function(pl){
   return{key:pl.key,name:pl.name,color:pl.color,rev:rev,de:de,gp:gp,gpPct:rev>0?gp/rev*100:0,targetRev:pl.targetRev,targetGP:pl.targetGP,progress:rev/pl.targetRev*100};
 });
 
-/* Chart data */
-var monthlyChartData = MONTHLY_DATA.map(function(m){return{month:m.month,actual:m.revenue.total,target:m.target};});
-var opexChartData = MONTHLY_DATA.map(function(m){return{month:m.month,hr:m.opex.hr,rent:m.opex.rent,sales:m.opex.sales,operating:m.opex.operating};});
-var avgMonthly = ytdRevenue/monthsElapsed;
+/* OpEx chart */
+var opexChartData = MONTHLY_DATA.map(function(m){return{month:m.month,hr:m.opex.hr,rent:m.opex.rent,sales:m.opex.sales,operating:m.opex.operating,total:m.opex.total,budget:MONTHLY_OPEX_BUDGET};});
 
-/* Debt pie */
-var debtPieData = [
-  {name:'ATO',value:DEBT_CURRENT.ato,color:'#EF4444'},
-  {name:'Commission',value:DEBT_CURRENT.commission,color:'#3B82F6'},
-  {name:'OPEX',value:DEBT_CURRENT.opex,color:'#8B5CF6'},
-  {name:'Refund',value:DEBT_CURRENT.refund,color:'#F59E0B'},
-  {name:'ST Expenses',value:DEBT_CURRENT.stExpenses,color:'#10B981'}
-].filter(function(d){return d.value>0;});
+/* Debt 12-month tracking */
+var debtTrackingData = MONTHS.map(function(m,i){
+  var md = MONTHLY_DATA.find(function(d){return d.month===m;});
+  var budgetDebt = DEBT_OPENING.total - MONTHLY_DEBT_TARGET*(i+1);
+  return {month:m, budget:Math.max(budgetDebt,0), actual:md&&md.debtTotal?md.debtTotal:null};
+});
 
 /* Cash forecast */
 var cashForecast = [];
@@ -169,9 +179,18 @@ var prevCash = latestCash;
   prevCash=closing;
 });
 
-var cashTrendData = MONTHLY_DATA.map(function(m){return{month:m.month,cash:m.cash,projected:null};}).concat(
-  cashForecast.map(function(f){return{month:f.month,cash:null,projected:f.closing};})
+var cashTrendData = MONTHLY_DATA.map(function(m){return{month:m.month,actual:m.cash,projected:null};}).concat(
+  cashForecast.map(function(f){return{month:f.month,actual:null,projected:f.closing};})
 );
+
+/* Debt pie */
+var debtPieData = [
+  {name:'ATO',value:DEBT_CURRENT.ato,color:'#EF4444'},
+  {name:'Commission',value:DEBT_CURRENT.commission,color:'#3B82F6'},
+  {name:'OPEX',value:DEBT_CURRENT.opex,color:'#8B5CF6'},
+  {name:'Refund',value:DEBT_CURRENT.refund,color:'#F59E0B'},
+  {name:'ST Expenses',value:DEBT_CURRENT.stExpenses,color:'#10B981'}
+].filter(function(d){return d.value>0;});
 
 /* ========== STYLES ========== */
 var S = {
@@ -192,6 +211,7 @@ var S = {
   sectionTitle:{fontSize:16,fontWeight:700,color:'#F8FAFC',marginBottom:16},
   chartWrap:{width:'100%',height:320},
   grid2:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24,marginBottom:24},
+  grid3:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:24,marginBottom:24},
   table:{width:'100%',borderCollapse:'collapse',fontSize:13},
   th:{padding:'10px 12px',textAlign:'left',borderBottom:'2px solid #334155',color:'#94A3B8',fontWeight:600,fontSize:11,textTransform:'uppercase',letterSpacing:'0.05em'},
   td:{padding:'10px 12px',borderBottom:'1px solid #1E293B',color:'#E2E8F0',fontFeatureSettings:'"tnum"'},
@@ -199,7 +219,9 @@ var S = {
   productCard:{background:'linear-gradient(135deg,#0F172A,#1E293B)',borderRadius:10,padding:16,border:'1px solid #334155'},
   progressBar:{height:6,background:'#1E293B',borderRadius:3,overflow:'hidden',marginTop:8},
   progressFill:{height:'100%',borderRadius:3,transition:'width 0.5s ease'},
-  footer:{textAlign:'center',padding:'16px',color:'#475569',fontSize:11}
+  footer:{textAlign:'center',padding:'16px',color:'#475569',fontSize:11},
+  miniCard:{background:'#0F172A',borderRadius:8,padding:'12px 16px',border:'1px solid #334155'},
+  tag:{display:'inline-block',padding:'2px 8px',borderRadius:4,fontSize:10,fontWeight:700,letterSpacing:'0.05em'}
 };
 
 /* ========== SHARED COMPONENTS ========== */
@@ -209,12 +231,11 @@ function KpiCard(props){
   var trendColor = props.trendUp===true?'#10B981':props.trendUp===false?'#EF4444':'#94A3B8';
   return h('div',{style:Object.assign({},S.kpi,{boxShadow:'0 0 20px '+glowColor,borderColor:borderColor})},
     h('div',{style:S.kpiLabel},props.label),
-    h('div',{style:S.kpiValue},props.value),
+    h('div',{style:Object.assign({},S.kpiValue,props.valueColor?{color:props.valueColor}:{})},props.value),
     props.sub?h('div',{style:S.kpiSub},props.sub):null,
     props.trend?h('div',{style:Object.assign({},S.kpiTrend,{color:trendColor})},props.trend):null
   );
 }
-
 function DataTable(props){
   return h('div',{style:{overflowX:'auto'}},
     h('table',{style:S.table},
@@ -242,17 +263,17 @@ function OverviewTab(){
       h(KpiCard,{label:'Total Debt',value:fmt(DEBT_TOTAL),sub:'Opening: '+fmt(DEBT_OPENING.total),trend:debtPaid>0?fmt(debtPaid)+' paid':fmt(Math.abs(debtPaid))+' increased',trendUp:debtPaid>0}),
       h(KpiCard,{label:'Gross Profit %',value:pct(ytdGPPct),sub:'Target: 51.9%',trend:ytdGPPct>=51.9?'Above target':'Below target - watch DE',trendUp:ytdGPPct>=51.9,alert:ytdGPPct<50?'red':null})
     ),
-    /* Charts Row */
     h('div',{style:S.grid2},
       h('div',{style:S.section},
-        h('div',{style:S.sectionTitle},'Monthly Revenue vs Target'),
+        h('div',{style:S.sectionTitle},'Monthly Revenue vs Target (Full Year)'),
         h('div',{style:S.chartWrap},
           h(ResponsiveContainer,{width:'100%',height:'100%'},
-            h(ComposedChart,{data:monthlyChartData,margin:{top:20,right:20,bottom:5,left:10}},
+            h(ComposedChart,{data:fullYearChartData,margin:{top:20,right:20,bottom:5,left:10}},
               h(CartesianGrid,{strokeDasharray:'3 3',stroke:'#334155'}),
               h(XAxis,{dataKey:'month',stroke:'#64748B',fontSize:12}),
               h(YAxis,{stroke:'#64748B',fontSize:11,tickFormatter:function(v){return '$'+Math.round(v/1000)+'K';}}),
-              h(Tooltip,{formatter:function(v){return fmtFull(v);},contentStyle:{background:'#1E293B',border:'1px solid #475569',borderRadius:8,color:'#E2E8F0'}}),
+              h(Tooltip,{formatter:function(v){return v!=null?fmtFull(v):'-';},contentStyle:{background:'#1E293B',border:'1px solid #475569',borderRadius:8,color:'#E2E8F0'}}),
+              h(Legend,null),
               h(Bar,{dataKey:'target',fill:'#334155',radius:[4,4,0,0],name:'Target'}),
               h(Bar,{dataKey:'actual',fill:'#3B82F6',radius:[4,4,0,0],name:'Actual'}),
               h(ReferenceLine,{y:avgMonthly,stroke:'#F59E0B',strokeDasharray:'5 5',label:{value:'Avg '+fmt(avgMonthly),fill:'#F59E0B',fontSize:11,position:'right'}})
@@ -269,6 +290,7 @@ function OverviewTab(){
               h(XAxis,{dataKey:'month',stroke:'#64748B',fontSize:12}),
               h(YAxis,{stroke:'#64748B',fontSize:11,tickFormatter:function(v){return '$'+(v/1000000).toFixed(1)+'M';}}),
               h(Tooltip,{formatter:function(v){return v!=null?fmtFull(v):'-';},contentStyle:{background:'#1E293B',border:'1px solid #475569',borderRadius:8,color:'#E2E8F0'}}),
+              h(Legend,null),
               h(Area,{dataKey:'target',stroke:'#475569',fill:'rgba(71,85,105,0.2)',name:'Target Path',strokeDasharray:'5 5'}),
               h(Area,{dataKey:'actual',stroke:'#3B82F6',fill:'rgba(59,130,246,0.15)',name:'Actual',connectNulls:false}),
               h(ReferenceLine,{y:BREAKEVEN_EXCL,stroke:'#EF4444',strokeDasharray:'3 3',label:{value:'Break-even $3.6M',fill:'#EF4444',fontSize:10,position:'right'}})
@@ -277,7 +299,6 @@ function OverviewTab(){
         )
       )
     ),
-    /* Product Lines */
     h('div',{style:Object.assign({},S.section,{marginTop:0})},
       h('div',{style:S.sectionTitle},'Product Line Performance (YTD)'),
       h('div',{style:{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:12,marginBottom:20}},
@@ -289,25 +310,11 @@ function OverviewTab(){
             h('div',{style:{fontSize:11,color:'#94A3B8',marginTop:4}},'GP: '+pct(p.gpPct)+' (target '+pct(p.targetGP)+')'),
             h('div',{style:{fontSize:11,color:gpOk?'#10B981':'#F59E0B',fontWeight:600,marginTop:2}},gpOk?'On track':'Below target GP'),
             h('div',{style:{fontSize:11,color:'#64748B',marginTop:4}},pct(p.progress)+' of '+fmt(p.targetRev)),
-            h('div',{style:S.progressBar},
-              h('div',{style:Object.assign({},S.progressFill,{width:Math.min(p.progress,100)+'%',background:p.color})})
-            )
+            h('div',{style:S.progressBar},h('div',{style:Object.assign({},S.progressFill,{width:Math.min(p.progress,100)+'%',background:p.color})}))
           );
         })
-      ),
-      /* Revenue Pie */
-      h('div',{style:{width:'100%',height:300}},
-        h(ResponsiveContainer,{width:'100%',height:'100%'},
-          h(PieChart,null,
-            h(Pie,{data:productYTD.filter(function(p){return p.rev>0;}),cx:'50%',cy:'50%',innerRadius:70,outerRadius:130,paddingAngle:2,dataKey:'rev',label:function(e){return e.name+' '+fmt(e.rev);}},
-              productYTD.filter(function(p){return p.rev>0;}).map(function(p,i){return h(Cell,{key:i,fill:p.color});})
-            ),
-            h(Tooltip,{formatter:function(v){return fmtFull(v);},contentStyle:{background:'#1E293B',border:'1px solid #475569',borderRadius:8,color:'#E2E8F0'}})
-          )
-        )
       )
     ),
-    /* Monthly Summary Table */
     h('div',{style:S.section},
       h('div',{style:S.sectionTitle},'Monthly Summary'),
       h(DataTable,{
@@ -321,25 +328,68 @@ function OverviewTab(){
   );
 }
 
-/* ========== TAB 2: OPERATIONAL EXPENSES ========== */
+/* ========== TAB 2: OPERATIONAL EXPENSES (IMPROVED) ========== */
 function OpExTab(){
-  var ytdOtherOpEx = ytdRent+ytdSales+ytdOperating;
-  var hrBudget = COST_BUDGET.hr*monthsElapsed;
-  var otherBudget = (COST_BUDGET.rent+COST_BUDGET.sales+COST_BUDGET.opex)*monthsElapsed;
+  var totalBudget = MONTHLY_OPEX_BUDGET*monthsElapsed;
+  var variance = ytdOpEx - totalBudget;
+  var variancePct = variance/totalBudget*100;
   var opexRevPct = ytdOpEx/ytdRevenue*100;
+  var revenuePerOpex = ytdRevenue/ytdOpEx;
+
+  var opexBreakdown = [
+    {name:'HR',value:ytdHR,color:'#3B82F6',budget:COST_BUDGET.hr*monthsElapsed},
+    {name:'Rent & Outgoing',value:ytdRent,color:'#10B981',budget:COST_BUDGET.rent*monthsElapsed},
+    {name:'Sales',value:ytdSales,color:'#F59E0B',budget:COST_BUDGET.sales*monthsElapsed},
+    {name:'Operating',value:ytdOperating,color:'#8B5CF6',budget:COST_BUDGET.opex*monthsElapsed}
+  ];
+  var budgetCompareData = opexBreakdown.map(function(c){return {name:c.name,actual:c.value,budget:c.budget,color:c.color};});
+
   return h('div',null,
     h('div',{style:S.kpiRow},
-      h(KpiCard,{label:'YTD Total OpEx',value:fmt(ytdOpEx),sub:'Budget: '+fmt(MONTHLY_OPEX_BUDGET*monthsElapsed),trend:fmtFull(ytdOpEx-MONTHLY_OPEX_BUDGET*monthsElapsed)+' variance',trendUp:ytdOpEx<=MONTHLY_OPEX_BUDGET*monthsElapsed,alert:ytdOpEx>MONTHLY_OPEX_BUDGET*monthsElapsed*1.1?'red':ytdOpEx>MONTHLY_OPEX_BUDGET*monthsElapsed?'amber':null}),
-      h(KpiCard,{label:'HR Expense',value:fmt(ytdHR),sub:'Budget: '+fmt(hrBudget),trend:fmtFull(ytdHR-hrBudget)+' variance',trendUp:ytdHR<=hrBudget,alert:ytdHR>hrBudget*1.1?'red':ytdHR>hrBudget?'amber':null}),
-      h(KpiCard,{label:'Other OpEx (R+S+O)',value:fmt(ytdOtherOpEx),sub:'Budget: '+fmt(otherBudget),trend:fmtFull(ytdOtherOpEx-otherBudget)+' variance',trendUp:ytdOtherOpEx<=otherBudget}),
-      h(KpiCard,{label:'OpEx % of Revenue',value:pct(opexRevPct),sub:'Lower is better',alert:opexRevPct>60?'amber':null})
+      h(KpiCard,{label:'YTD Total OpEx',value:fmt(ytdOpEx),sub:'Budget: '+fmt(totalBudget),trend:fmtFull(variance)+(variance<=0?' under':' over')+' budget',trendUp:variance<=0,alert:variance>totalBudget*0.1?'red':variance>0?'amber':null}),
+      h(KpiCard,{label:'Budget Variance',value:fmtPct(variancePct),sub:variance<=0?'Under budget':'Over budget',trendUp:variance<=0,valueColor:variance<=0?'#10B981':'#EF4444'}),
+      h(KpiCard,{label:'OpEx % of Revenue',value:pct(opexRevPct),sub:'Lower is better',trend:'$'+revenuePerOpex.toFixed(2)+' rev per $1 opex',alert:opexRevPct>60?'amber':null}),
+      h(KpiCard,{label:'Monthly Average',value:fmt(ytdOpEx/monthsElapsed),sub:'Budget: '+fmt(MONTHLY_OPEX_BUDGET)+'/mo',trend:ytdOpEx/monthsElapsed<=MONTHLY_OPEX_BUDGET?'Within budget':'Above budget',trendUp:ytdOpEx/monthsElapsed<=MONTHLY_OPEX_BUDGET})
     ),
-    /* Stacked Bar Chart */
+    h('div',{style:S.grid2},
+      h('div',{style:S.section},
+        h('div',{style:S.sectionTitle},'Actual vs Budget by Category'),
+        h('div',{style:S.chartWrap},
+          h(ResponsiveContainer,{width:'100%',height:'100%'},
+            h(BarChart,{data:budgetCompareData,margin:{top:20,right:20,bottom:5,left:10}},
+              h(CartesianGrid,{strokeDasharray:'3 3',stroke:'#334155'}),
+              h(XAxis,{dataKey:'name',stroke:'#64748B',fontSize:12}),
+              h(YAxis,{stroke:'#64748B',fontSize:11,tickFormatter:function(v){return '$'+Math.round(v/1000)+'K';}}),
+              h(Tooltip,{formatter:function(v){return fmtFull(v);},contentStyle:{background:'#1E293B',border:'1px solid #475569',borderRadius:8,color:'#E2E8F0'}}),
+              h(Legend,null),
+              h(Bar,{dataKey:'budget',fill:'#475569',name:'Budget',radius:[4,4,0,0]}),
+              h(Bar,{dataKey:'actual',name:'Actual',radius:[4,4,0,0]},
+                budgetCompareData.map(function(d,i){return h(Cell,{key:i,fill:d.actual>d.budget?'#EF4444':d.color});})
+              )
+            )
+          )
+        )
+      ),
+      h('div',{style:S.section},
+        h('div',{style:S.sectionTitle},'OpEx Composition'),
+        h('div',{style:S.chartWrap},
+          h(ResponsiveContainer,{width:'100%',height:'100%'},
+            h(PieChart,null,
+              h(Pie,{data:opexBreakdown,cx:'50%',cy:'50%',innerRadius:70,outerRadius:120,paddingAngle:2,dataKey:'value',label:function(e){return e.name+' '+Math.round(e.value/ytdOpEx*100)+'%';}},
+                opexBreakdown.map(function(d,i){return h(Cell,{key:i,fill:d.color});})
+              ),
+              h(Tooltip,{formatter:function(v){return fmtFull(v);},contentStyle:{background:'#1E293B',border:'1px solid #475569',borderRadius:8,color:'#E2E8F0'}})
+            )
+          ),
+          h('div',{style:{textAlign:'center',marginTop:-8,fontSize:13,color:'#94A3B8'}},'Total: '+fmtFull(ytdOpEx))
+        )
+      )
+    ),
     h('div',{style:S.section},
-      h('div',{style:S.sectionTitle},'Monthly OpEx by Category'),
-      h('div',{style:S.chartWrap},
+      h('div',{style:S.sectionTitle},'Monthly OpEx Trend vs Budget'),
+      h('div',{style:{width:'100%',height:350}},
         h(ResponsiveContainer,{width:'100%',height:'100%'},
-          h(BarChart,{data:opexChartData,margin:{top:20,right:20,bottom:5,left:10}},
+          h(ComposedChart,{data:opexChartData,margin:{top:20,right:20,bottom:5,left:10}},
             h(CartesianGrid,{strokeDasharray:'3 3',stroke:'#334155'}),
             h(XAxis,{dataKey:'month',stroke:'#64748B',fontSize:12}),
             h(YAxis,{stroke:'#64748B',fontSize:11,tickFormatter:function(v){return '$'+Math.round(v/1000)+'K';}}),
@@ -348,38 +398,36 @@ function OpExTab(){
             h(Bar,{dataKey:'hr',stackId:'a',fill:'#3B82F6',name:'HR Expense'}),
             h(Bar,{dataKey:'rent',stackId:'a',fill:'#10B981',name:'Rent & Outgoing'}),
             h(Bar,{dataKey:'sales',stackId:'a',fill:'#F59E0B',name:'Sales Cost'}),
-            h(Bar,{dataKey:'operating',stackId:'a',fill:'#8B5CF6',name:'Operating Cost',radius:[4,4,0,0]})
+            h(Bar,{dataKey:'operating',stackId:'a',fill:'#8B5CF6',name:'Operating Cost',radius:[4,4,0,0]}),
+            h(Line,{type:'monotone',dataKey:'budget',stroke:'#EF4444',strokeWidth:2,strokeDasharray:'6 3',dot:false,name:'Monthly Budget'})
           )
         )
       )
     ),
-    /* Tables */
-    h('div',{style:S.grid2},
-      h('div',{style:S.section},
-        h('div',{style:S.sectionTitle},'Category Budget Analysis'),
-        h(DataTable,{
-          headers:['Category','YTD Actual','Budget','Variance','Status'],
-          rows:[
-            ['HR Expense',fmtFull(ytdHR),fmtFull(hrBudget),fmtFull(ytdHR-hrBudget),ytdHR<=hrBudget?'Under':'Over'],
-            ['Rent & Outgoing',fmtFull(ytdRent),fmtFull(COST_BUDGET.rent*monthsElapsed),fmtFull(ytdRent-COST_BUDGET.rent*monthsElapsed),ytdRent<=COST_BUDGET.rent*monthsElapsed?'Under':'Over'],
-            ['Sales Cost',fmtFull(ytdSales),fmtFull(COST_BUDGET.sales*monthsElapsed),fmtFull(ytdSales-COST_BUDGET.sales*monthsElapsed),ytdSales<=COST_BUDGET.sales*monthsElapsed?'Under':'Over'],
-            ['Operating Cost',fmtFull(ytdOperating),fmtFull(COST_BUDGET.opex*monthsElapsed),fmtFull(ytdOperating-COST_BUDGET.opex*monthsElapsed),ytdOperating<=COST_BUDGET.opex*monthsElapsed?'Under':'Over'],
-            ['Total',fmtFull(ytdOpEx),fmtFull(MONTHLY_OPEX_BUDGET*monthsElapsed),fmtFull(ytdOpEx-MONTHLY_OPEX_BUDGET*monthsElapsed),'']
-          ],totalRow:true
-        })
-      ),
-      h('div',{style:S.section},
-        h('div',{style:S.sectionTitle},'Monthly OpEx Detail'),
-        h(DataTable,{
-          headers:['Month','HR','Rent','Sales','Operating','Total'],
-          rows:MONTHLY_DATA.map(function(m){
-            return[m.month,fmtFull(m.opex.hr),fmtFull(m.opex.rent),fmtFull(m.opex.sales),fmtFull(m.opex.operating),fmtFull(m.opex.total)];
-          }).concat([['YTD',fmtFull(ytdHR),fmtFull(ytdRent),fmtFull(ytdSales),fmtFull(ytdOperating),fmtFull(ytdOpEx)]]),
-          totalRow:true
-        })
-      )
+    h('div',{style:{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}},
+      opexBreakdown.map(function(cat){
+        var vari = cat.value - cat.budget;
+        var overBudget = vari > 0;
+        return h('div',{key:cat.name,style:Object.assign({},S.section,{marginBottom:0,borderLeft:'3px solid '+cat.color,padding:16})},
+          h('div',{style:{fontSize:13,fontWeight:700,color:cat.color,marginBottom:10}},cat.name),
+          h('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:4}},
+            h('span',{style:{fontSize:11,color:'#94A3B8'}},'Actual'),
+            h('span',{style:{fontSize:14,fontWeight:700,color:'#F8FAFC'}},fmtFull(cat.value))
+          ),
+          h('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:4}},
+            h('span',{style:{fontSize:11,color:'#94A3B8'}},'Budget'),
+            h('span',{style:{fontSize:14,fontWeight:600,color:'#64748B'}},fmtFull(cat.budget))
+          ),
+          h('div',{style:{borderTop:'1px solid #334155',paddingTop:8,marginTop:6}},
+            h('div',{style:{display:'flex',justifyContent:'space-between'}},
+              h('span',{style:{fontSize:11,color:'#94A3B8'}},'Variance'),
+              h('span',{style:{fontSize:13,fontWeight:700,color:overBudget?'#EF4444':'#10B981'}},fmtFull(vari))
+            ),
+            h('div',{style:Object.assign({},S.tag,{marginTop:6,background:overBudget?'rgba(239,68,68,0.15)':'rgba(16,185,129,0.15)',color:overBudget?'#EF4444':'#10B981'})},overBudget?'OVER BUDGET':'UNDER BUDGET')
+          )
+        );
+      })
     ),
-    /* DE by Product */
     h('div',{style:S.section},
       h('div',{style:S.sectionTitle},'Direct Expenses by Product Line (YTD)'),
       h(DataTable,{
@@ -393,15 +441,46 @@ function OpExTab(){
   );
 }
 
-/* ========== TAB 3: DEBT ========== */
+/* ========== TAB 3: DEBT (12-MONTH BUDGET vs ACTUAL) ========== */
 function DebtTab(){
   var debtRevRatio = DEBT_TOTAL/ytdRevenue;
+  var onTrack = DEBT_TOTAL <= (DEBT_OPENING.total - MONTHLY_DEBT_TARGET*monthsElapsed);
+  var targetDebtNow = DEBT_OPENING.total - MONTHLY_DEBT_TARGET*monthsElapsed;
+  var debtGap = DEBT_TOTAL - targetDebtNow;
+
   return h('div',null,
     h('div',{style:S.kpiRow},
       h(KpiCard,{label:'Total Current Debt',value:fmt(DEBT_TOTAL),sub:'Opening: '+fmt(DEBT_OPENING.total),alert:DEBT_TOTAL>DEBT_OPENING.total?'red':null}),
       h(KpiCard,{label:'Debt Paid YTD',value:fmt(Math.abs(debtPaid)),trend:debtPaid>0?'Reducing':'Increased by '+fmt(Math.abs(debtPaid)),trendUp:debtPaid>0,alert:debtPaid<0?'red':null}),
-      h(KpiCard,{label:'Monthly Debt Target',value:fmtFull(MONTHLY_DEBT_TARGET),sub:'Annual: '+fmt(771177)}),
-      h(KpiCard,{label:'Debt-to-Revenue',value:debtRevRatio.toFixed(2)+'x',sub:debtRevRatio>2?'High leverage':'Manageable',alert:debtRevRatio>3?'red':debtRevRatio>2?'amber':null})
+      h(KpiCard,{label:'Monthly Debt Target',value:fmtFull(MONTHLY_DEBT_TARGET),sub:'Annual: '+fmt(ANNUAL_DEBT_TARGET)}),
+      h(KpiCard,{label:'vs Target Pace',value:onTrack?'On Track':'Behind',sub:'Gap: '+fmtFull(Math.abs(debtGap)),trendUp:onTrack,alert:!onTrack?'red':null,valueColor:onTrack?'#10B981':'#EF4444'})
+    ),
+    h('div',{style:S.section},
+      h('div',{style:S.sectionTitle},'12-Month Debt Tracking: Budget vs Actual'),
+      h('div',{style:{width:'100%',height:380}},
+        h(ResponsiveContainer,{width:'100%',height:'100%'},
+          h(LineChart,{data:debtTrackingData,margin:{top:20,right:30,bottom:5,left:10}},
+            h(CartesianGrid,{strokeDasharray:'3 3',stroke:'#334155'}),
+            h(XAxis,{dataKey:'month',stroke:'#64748B',fontSize:12}),
+            h(YAxis,{stroke:'#64748B',fontSize:11,tickFormatter:function(v){return '$'+(v/1000000).toFixed(1)+'M';},domain:['auto','auto']}),
+            h(Tooltip,{formatter:function(v){return v!=null?fmtFull(v):'-';},contentStyle:{background:'#1E293B',border:'1px solid #475569',borderRadius:8,color:'#E2E8F0'}}),
+            h(Legend,null),
+            h(Line,{type:'monotone',dataKey:'budget',stroke:'#F59E0B',strokeWidth:2,strokeDasharray:'8 4',dot:{r:3,fill:'#F59E0B'},name:'Budget (Planned Reduction)'}),
+            h(Line,{type:'monotone',dataKey:'actual',stroke:'#EF4444',strokeWidth:3,dot:{r:5,fill:'#EF4444',stroke:'#fff',strokeWidth:2},name:'Actual Debt',connectNulls:false}),
+            h(ReferenceLine,{y:DEBT_OPENING.total,stroke:'#64748B',strokeDasharray:'3 3',label:{value:'Opening '+fmt(DEBT_OPENING.total),fill:'#64748B',fontSize:10,position:'right'}})
+          )
+        )
+      ),
+      h('div',{style:{display:'flex',gap:24,marginTop:12,justifyContent:'center'}},
+        h('div',{style:{display:'flex',alignItems:'center',gap:6}},
+          h('div',{style:{width:24,height:3,background:'#F59E0B',borderRadius:2}}),
+          h('span',{style:{fontSize:11,color:'#94A3B8'}},'Budget: -'+fmtFull(MONTHLY_DEBT_TARGET)+'/month')
+        ),
+        h('div',{style:{display:'flex',alignItems:'center',gap:6}},
+          h('div',{style:{width:24,height:3,background:'#EF4444',borderRadius:2}}),
+          h('span',{style:{fontSize:11,color:'#94A3B8'}},'Actual debt balance')
+        )
+      )
     ),
     h('div',{style:S.grid2},
       h('div',{style:S.section},
@@ -418,15 +497,16 @@ function DebtTab(){
         )
       ),
       h('div',{style:S.section},
-        h('div',{style:S.sectionTitle},'Cash vs Debt'),
+        h('div',{style:S.sectionTitle},'Cash vs Debt Trend'),
         h('div',{style:{width:'100%',height:320}},
           h(ResponsiveContainer,{width:'100%',height:'100%'},
-            h(ComposedChart,{data:MONTHLY_DATA.map(function(m){return{month:m.month,cash:m.cash,debt:DEBT_TOTAL};}),margin:{top:20,right:60,bottom:5,left:10}},
+            h(ComposedChart,{data:MONTHLY_DATA.map(function(m){return{month:m.month,cash:m.cash,debt:m.debtTotal||DEBT_TOTAL};}),margin:{top:20,right:60,bottom:5,left:10}},
               h(CartesianGrid,{strokeDasharray:'3 3',stroke:'#334155'}),
               h(XAxis,{dataKey:'month',stroke:'#64748B',fontSize:12}),
               h(YAxis,{yAxisId:'left',stroke:'#64748B',fontSize:11,tickFormatter:function(v){return '$'+Math.round(v/1000)+'K';}}),
               h(YAxis,{yAxisId:'right',orientation:'right',stroke:'#64748B',fontSize:11,tickFormatter:function(v){return '$'+(v/1000000).toFixed(1)+'M';}}),
               h(Tooltip,{formatter:function(v){return fmtFull(v);},contentStyle:{background:'#1E293B',border:'1px solid #475569',borderRadius:8,color:'#E2E8F0'}}),
+              h(Legend,null),
               h(Bar,{yAxisId:'left',dataKey:'cash',fill:'#3B82F6',radius:[4,4,0,0],name:'Cash'}),
               h(Line,{yAxisId:'right',dataKey:'debt',stroke:'#EF4444',strokeWidth:2,dot:true,name:'Total Debt'})
             )
@@ -452,37 +532,68 @@ function DebtTab(){
   );
 }
 
-/* ========== TAB 4: CASH PREDICTION ========== */
+/* ========== TAB 4: CASH PREDICTION (IMPROVED) ========== */
 function CashTab(){
-  var runway = ytdEBIDA>0?'Positive':'~'+Math.round(latestCash/(ytdOpEx/monthsElapsed))+' months';
   var nextCash = cashForecast.length>0?cashForecast[0].closing:null;
   return h('div',null,
     h('div',{style:S.kpiRow},
       h(KpiCard,{label:'Current Cash',value:fmtFull(latestCash),sub:'End of '+MONTHLY_DATA[MONTHLY_DATA.length-1].month,alert:latestCash<50000?'red':latestCash<150000?'amber':null}),
       h(KpiCard,{label:'Predicted Mar Cash',value:nextCash!=null?fmtFull(nextCash):'-',sub:'Source: '+cashForecast[0].source,alert:nextCash!=null&&nextCash<0?'red':nextCash!=null&&nextCash<50000?'amber':null}),
-      h(KpiCard,{label:'Cash Runway',value:ytdEBIDA>0?'Generating Cash':runway,sub:ytdEBIDA>0?'YTD EBIDA: '+fmtFull(ytdEBIDA):'At current expense rate',trendUp:ytdEBIDA>0})
+      h(KpiCard,{label:'Net Monthly Cash Flow',value:fmtFull(ytdEBIDA/monthsElapsed),sub:'Revenue - All Expenses',trendUp:ytdEBIDA>0,valueColor:ytdEBIDA>=0?'#10B981':'#EF4444'}),
+      h(KpiCard,{label:'Cash Runway',value:ytdEBIDA>0?'Generating Cash':'~'+Math.round(latestCash/(ytdOpEx/monthsElapsed))+' months',sub:ytdEBIDA>0?'YTD EBIDA: '+fmtFull(ytdEBIDA):'At current rate',trendUp:ytdEBIDA>0})
     ),
-    /* Cash Trend */
     h('div',{style:S.section},
-      h('div',{style:S.sectionTitle},'Cash Position: Actual + Projected'),
-      h('div',{style:{width:'100%',height:350}},
+      h('div',{style:S.sectionTitle},'Cash Position Timeline: Actual + Projected'),
+      h('div',{style:{width:'100%',height:380}},
         h(ResponsiveContainer,{width:'100%',height:'100%'},
           h(ComposedChart,{data:cashTrendData,margin:{top:20,right:30,bottom:5,left:10}},
             h(CartesianGrid,{strokeDasharray:'3 3',stroke:'#334155'}),
             h(XAxis,{dataKey:'month',stroke:'#64748B',fontSize:12}),
             h(YAxis,{stroke:'#64748B',fontSize:11,tickFormatter:function(v){return '$'+Math.round(v/1000)+'K';}}),
             h(Tooltip,{formatter:function(v){return v!=null?fmtFull(v):'-';},contentStyle:{background:'#1E293B',border:'1px solid #475569',borderRadius:8,color:'#E2E8F0'}}),
-            h(Bar,{dataKey:'cash',fill:'#3B82F6',radius:[4,4,0,0],name:'Actual Cash'}),
-            h(Bar,{dataKey:'projected',fill:'rgba(59,130,246,0.35)',radius:[4,4,0,0],name:'Projected Cash'}),
+            h(Legend,null),
+            h(Area,{type:'monotone',dataKey:'actual',stroke:'#3B82F6',fill:'rgba(59,130,246,0.15)',strokeWidth:3,dot:{r:5,fill:'#3B82F6',stroke:'#fff',strokeWidth:2},name:'Actual Cash',connectNulls:false}),
+            h(Area,{type:'monotone',dataKey:'projected',stroke:'#8B5CF6',fill:'rgba(139,92,246,0.1)',strokeWidth:2,strokeDasharray:'6 3',dot:{r:4,fill:'#8B5CF6'},name:'Projected',connectNulls:false}),
             h(ReferenceLine,{y:50000,stroke:'#EF4444',strokeDasharray:'3 3',label:{value:'$50K Alert',fill:'#EF4444',fontSize:10,position:'right'}}),
             h(ReferenceLine,{y:150000,stroke:'#F59E0B',strokeDasharray:'3 3',label:{value:'$150K Buffer',fill:'#F59E0B',fontSize:10,position:'right'}})
           )
         )
       )
     ),
-    /* 3-Month Forecast */
     h('div',{style:S.section},
-      h('div',{style:S.sectionTitle},'3-Month Rolling Forecast'),
+      h('div',{style:S.sectionTitle},'Monthly Cash Flow Summary'),
+      h('div',{style:{display:'grid',gridTemplateColumns:'repeat('+(MONTHLY_DATA.length+cashForecast.length)+',1fr)',gap:12}},
+        MONTHLY_DATA.map(function(m){
+          return h('div',{key:m.month,style:Object.assign({},S.miniCard,{borderTop:'3px solid #3B82F6'})},
+            h('div',{style:{fontSize:12,fontWeight:700,color:'#3B82F6',marginBottom:8}},m.month),
+            h('div',{style:{fontSize:10,color:'#94A3B8'}},'Revenue'),
+            h('div',{style:{fontSize:14,fontWeight:700,color:'#10B981',marginBottom:4}},'+'+fmt(m.revenue.total)),
+            h('div',{style:{fontSize:10,color:'#94A3B8'}},'Expenses'),
+            h('div',{style:{fontSize:14,fontWeight:700,color:'#EF4444',marginBottom:4}},'-'+fmt(m.de.total+m.opex.total)),
+            h('div',{style:{borderTop:'1px solid #334155',paddingTop:6,marginTop:4}}),
+            h('div',{style:{fontSize:10,color:'#94A3B8'}},'Closing'),
+            h('div',{style:{fontSize:16,fontWeight:800,color:m.cash>=150000?'#10B981':m.cash>=50000?'#F59E0B':'#EF4444'}},fmtFull(m.cash))
+          );
+        }),
+        cashForecast.map(function(f){
+          return h('div',{key:f.month,style:Object.assign({},S.miniCard,{borderTop:'3px solid #8B5CF6',opacity:0.85})},
+            h('div',{style:{display:'flex',alignItems:'center',gap:4,marginBottom:8}},
+              h('span',{style:{fontSize:12,fontWeight:700,color:'#8B5CF6'}},f.month),
+              h('span',{style:Object.assign({},S.tag,{background:'rgba(139,92,246,0.2)',color:'#A78BFA'})},f.source)
+            ),
+            h('div',{style:{fontSize:10,color:'#94A3B8'}},'Revenue'),
+            h('div',{style:{fontSize:14,fontWeight:700,color:'#10B981',marginBottom:4}},'+'+fmt(f.revenue)),
+            h('div',{style:{fontSize:10,color:'#94A3B8'}},'Expenses'),
+            h('div',{style:{fontSize:14,fontWeight:700,color:'#EF4444',marginBottom:4}},'-'+fmt(f.de+f.hr+f.other+f.debt)),
+            h('div',{style:{borderTop:'1px solid #334155',paddingTop:6,marginTop:4}}),
+            h('div',{style:{fontSize:10,color:'#94A3B8'}},'Closing'),
+            h('div',{style:{fontSize:16,fontWeight:800,color:f.closing>=150000?'#10B981':f.closing>=50000?'#F59E0B':'#EF4444'}},fmtFull(f.closing))
+          );
+        })
+      )
+    ),
+    h('div',{style:S.section},
+      h('div',{style:S.sectionTitle},'3-Month Forecast Detail'),
       h(DataTable,{
         headers:['','Mar','Apr','May'],
         rows:[
@@ -495,30 +606,50 @@ function CashTab(){
           ['- Debt Payments',fmtFull(cashForecast[0].debt),fmtFull(cashForecast[1].debt),fmtFull(cashForecast[2].debt)],
           ['Closing Cash',fmtFull(cashForecast[0].closing),fmtFull(cashForecast[1].closing),fmtFull(cashForecast[2].closing)]
         ],totalRow:true
-      })
-    ),
-    h('div',{style:Object.assign({},S.section,{padding:16})},
-      h('div',{style:{fontSize:12,color:'#94A3B8'}},
-        h('span',{style:{fontWeight:700,color:'#60A5FA'}},'Prediction Sources: '),
-        'Mar = 1-Month Accrued (AR invoices $97.7K) | Apr = AI 2-Month (AR+ST Quotation $197.8K) | May = Target ($300K). DE at ~45% of revenue. HR $97.3K/mo. Other $70.4K/mo. Debt $64.3K/mo.'
+      }),
+      h('div',{style:{marginTop:12,padding:12,background:'#0F172A',borderRadius:8,border:'1px solid #334155'}},
+        h('div',{style:{fontSize:12,color:'#94A3B8'}},
+          h('span',{style:{fontWeight:700,color:'#60A5FA'}},'Sources: '),
+          'Mar = 1-Month Accrued (AR $97.7K) | Apr = AI 2-Month ($197.8K) | May = Target ($300K)'
+        )
       )
     )
   );
 }
 
-/* ========== TAB 5: SCENARIOS ========== */
+/* ========== TAB 5: SCENARIOS (IMPROVED) ========== */
 function ScenariosTab(){
   var scenarioChartData = SCENARIOS.map(function(s){return{name:s.name,revenue:s.revenue,gp:s.gp,ebida:s.ebida,netEbida:s.netEbida};});
   var gaugeWidth = Math.min(Math.max((projectedAnnual-2000000)/(6500000-2000000)*100,0),100);
+  var remainingMonths = 12 - monthsElapsed;
+  var neededForTarget = remainingMonths > 0 ? (ANNUAL_TARGET - ytdRevenue) / remainingMonths : 0;
+  var neededForDownside = remainingMonths > 0 ? (4162000 - ytdRevenue) / remainingMonths : 0;
+  var neededForFloor = remainingMonths > 0 ? (3232000 - ytdRevenue) / remainingMonths : 0;
+
   return h('div',null,
-    h('div',{style:S.kpiRow},
-      h(KpiCard,{label:'Current Trajectory',value:scenarioLabel,sub:'Projected: '+fmt(projectedAnnual),alert:scenarioLabel==='FLOOR'||scenarioLabel==='BELOW FLOOR'?'red':scenarioLabel==='DOWNSIDE'?'amber':null}),
-      h(KpiCard,{label:'Break-even (excl. debt)',value:fmt(BREAKEVEN_EXCL),sub:'Revenue needed to cover ops'}),
-      h(KpiCard,{label:'Break-even (incl. debt)',value:fmt(BREAKEVEN_INCL),sub:'Revenue to cover ops + debt'}),
-      h(KpiCard,{label:'Gap to Target',value:fmt(Math.abs(ANNUAL_TARGET-projectedAnnual)),sub:projectedAnnual>=ANNUAL_TARGET?'Ahead of target':'Shortfall',trendUp:projectedAnnual>=ANNUAL_TARGET})
+    h('div',{style:S.grid3},
+      SCENARIOS.map(function(s){
+        var isCurrent = (scenarioLabel === s.name.toUpperCase()) || (scenarioLabel === 'ON TARGET' && s.name === 'Target');
+        var color = s.name==='Floor'?'#EF4444':s.name==='Downside'?'#F59E0B':'#10B981';
+        var needed = s.name==='Floor'?neededForFloor:s.name==='Downside'?neededForDownside:neededForTarget;
+        return h('div',{key:s.name,style:Object.assign({},S.section,{marginBottom:0,borderColor:isCurrent?color:'#334155',borderWidth:isCurrent?2:1,position:'relative'})},
+          isCurrent?h('div',{style:Object.assign({},S.tag,{position:'absolute',top:12,right:12,background:color+'22',color:color})},'CURRENT'):null,
+          h('div',{style:{fontSize:18,fontWeight:800,color:color,marginBottom:16}},s.name),
+          h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}},
+            h('div',null,h('div',{style:{fontSize:11,color:'#94A3B8'}},'Revenue'),h('div',{style:{fontSize:20,fontWeight:700,color:'#F8FAFC'}},fmt(s.revenue))),
+            h('div',null,h('div',{style:{fontSize:11,color:'#94A3B8'}},'Gross Profit'),h('div',{style:{fontSize:20,fontWeight:700,color:'#F8FAFC'}},fmt(s.gp))),
+            h('div',null,h('div',{style:{fontSize:11,color:'#94A3B8'}},'GP%'),h('div',{style:{fontSize:18,fontWeight:700,color:'#F8FAFC'}},s.gpPct+'%')),
+            h('div',null,h('div',{style:{fontSize:11,color:'#94A3B8'}},'EBIDA'),h('div',{style:{fontSize:18,fontWeight:700,color:s.ebida>=0?'#10B981':'#EF4444'}},fmt(s.ebida)))
+          ),
+          h('div',{style:{borderTop:'1px solid #334155',marginTop:12,paddingTop:12}},
+            h('div',{style:{fontSize:11,color:'#94A3B8'}},'Net EBIDA (after debt)'),
+            h('div',{style:{fontSize:20,fontWeight:800,color:s.netEbida>=0?'#10B981':'#EF4444'}},fmtFull(s.netEbida)),
+            needed>0?h('div',{style:{fontSize:11,color:'#64748B',marginTop:6}},'Need '+fmt(needed)+'/mo remaining'):null
+          )
+        );
+      })
     ),
-    /* Gauge */
-    h('div',{style:S.section},
+    h('div',{style:Object.assign({},S.section,{marginTop:24})},
       h('div',{style:S.sectionTitle},'Revenue Projection Position'),
       h('div',{style:{position:'relative',height:70,background:'#0F172A',borderRadius:8,overflow:'visible',margin:'24px 0 8px'}},
         h('div',{style:{position:'absolute',left:0,top:0,bottom:0,width:'27%',background:'rgba(239,68,68,0.15)',borderRight:'2px solid #EF4444'}}),
@@ -532,9 +663,8 @@ function ScenariosTab(){
         h('div',{style:{position:'absolute',bottom:8,left:'52%',fontSize:10,color:'#10B981',fontWeight:600}},'Target $5.7M')
       )
     ),
-    /* Chart */
     h('div',{style:S.section},
-      h('div',{style:S.sectionTitle},'Scenario Comparison'),
+      h('div',{style:S.sectionTitle},'Scenario Financial Comparison'),
       h('div',{style:{width:'100%',height:350}},
         h(ResponsiveContainer,{width:'100%',height:'100%'},
           h(BarChart,{data:scenarioChartData,margin:{top:20,right:20,bottom:5,left:10}},
@@ -551,83 +681,130 @@ function ScenariosTab(){
         )
       )
     ),
-    /* Table */
-    h('div',{style:S.section},
-      h('div',{style:S.sectionTitle},'Scenario Detail Comparison'),
-      h(DataTable,{
-        headers:['Metric','Floor','Downside','Target','Current Projection'],
-        rows:[
-          ['Revenue',fmt(3232000),fmt(4162000),fmt(5700000),fmt(projectedAnnual)+' '+scenarioLabel],
-          ['Gross Profit',fmt(1628000),fmt(2101000),fmt(2959000),fmt(ytdGP*(12/monthsElapsed))],
-          ['GP%','50.4%','50.5%','51.9%',pct(ytdGPPct)],
-          ['EBIDA',fmt(-2000),fmt(291000),fmt(947000),fmt(ytdEBIDA*(12/monthsElapsed))],
-          ['Net EBIDA (after debt)',fmt(-773000),fmt(-480000),fmt(175000),fmt((ytdEBIDA*(12/monthsElapsed))-771177)]
-        ]
-      })
+    h('div',{style:Object.assign({},S.section,{background:'linear-gradient(135deg,#1E293B,#0F172A)'})},
+      h('div',{style:S.sectionTitle},'Path to Target'),
+      h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:16}},
+        h('div',{style:S.miniCard},
+          h('div',{style:{fontSize:11,color:'#94A3B8',marginBottom:4}},'Remaining Revenue Needed'),
+          h('div',{style:{fontSize:24,fontWeight:800,color:'#F8FAFC'}},fmt(ANNUAL_TARGET-ytdRevenue)),
+          h('div',{style:{fontSize:11,color:'#64748B',marginTop:4}},remainingMonths+' months remaining')
+        ),
+        h('div',{style:S.miniCard},
+          h('div',{style:{fontSize:11,color:'#94A3B8',marginBottom:4}},'Required Monthly Average'),
+          h('div',{style:{fontSize:24,fontWeight:800,color:neededForTarget<=800000?'#10B981':'#F59E0B'}},fmt(neededForTarget)),
+          h('div',{style:{fontSize:11,color:'#64748B',marginTop:4}},'Current avg: '+fmt(avgMonthly)+'/mo')
+        ),
+        h('div',{style:S.miniCard},
+          h('div',{style:{fontSize:11,color:'#94A3B8',marginBottom:4}},'Confidence Level'),
+          h('div',{style:{fontSize:24,fontWeight:800,color:scenarioColor}},scenarioLabel),
+          h('div',{style:{fontSize:11,color:'#64748B',marginTop:4}},'Based on '+monthsElapsed+'-month run rate')
+        )
+      )
     )
   );
 }
 
-/* ========== TAB 6: YoY COMPARISON ========== */
-function YoYTab(){
-  var ann = function(v){return Math.round(v*(12/monthsElapsed));};
-  var fy25MonthlyRev = FY2025.revenue.total/12;
-  var fy26AnnRev = ann(ytdRevenue);
-  var revChange = (fy26AnnRev-FY2025.revenue.total)/FY2025.revenue.total*100;
-  var yoyData = MONTHS.slice(0,monthsElapsed).map(function(m,i){
-    return{month:m,fy2025:Math.round(fy25MonthlyRev),fy2026:MONTHLY_DATA[i]?MONTHLY_DATA[i].revenue.total:0};
+/* ========== TAB 6: COMPARE WITH 2025 (SAME PERIOD) ========== */
+function CompareTab(){
+  var fy25Monthly = FY2025.monthly;
+  var periodCompare = MONTHS.slice(0,monthsElapsed).map(function(m){
+    var fy26 = MONTHLY_DATA.find(function(d){return d.month===m;});
+    var fy25 = fy25Monthly[m] || {};
+    return {month:m,rev2025:fy25.revenue||0,rev2026:fy26?fy26.revenue.total:0,gp2025:fy25.gp||0,gp2026:fy26?fy26.gp:0,opex2025:fy25.opex||0,opex2026:fy26?fy26.opex.total:0,ebida2025:fy25.ebida||0,ebida2026:fy26?fy26.ebida:0,cash2025:fy25.cash||0,cash2026:fy26?fy26.cash:0};
   });
+  var ytd25Rev = periodCompare.reduce(function(s,d){return s+d.rev2025;},0);
+  var ytd26Rev = periodCompare.reduce(function(s,d){return s+d.rev2026;},0);
+  var ytd25GP = periodCompare.reduce(function(s,d){return s+d.gp2025;},0);
+  var ytd26GP = periodCompare.reduce(function(s,d){return s+d.gp2026;},0);
+  var ytd25OpEx = periodCompare.reduce(function(s,d){return s+d.opex2025;},0);
+  var ytd26OpEx = periodCompare.reduce(function(s,d){return s+d.opex2026;},0);
+  var ytd25EBIDA = periodCompare.reduce(function(s,d){return s+d.ebida2025;},0);
+  var ytd26EBIDA = periodCompare.reduce(function(s,d){return s+d.ebida2026;},0);
+  var revChange = ytd25Rev>0?(ytd26Rev-ytd25Rev)/ytd25Rev*100:0;
+  var gpChange = ytd25GP>0?(ytd26GP-ytd25GP)/ytd25GP*100:0;
+  var opexChange = ytd25OpEx>0?(ytd26OpEx-ytd25OpEx)/ytd25OpEx*100:0;
+  var lastMonth = MONTHLY_DATA[MONTHLY_DATA.length-1].month;
+
   return h('div',null,
-    h('div',{style:S.kpiRow},
-      h(KpiCard,{label:'FY2025 Revenue',value:fmt(FY2025.revenue.total),sub:'FY2026 Annualized: '+fmt(fy26AnnRev),trend:fmtPct(revChange)+' YoY',trendUp:revChange<0}),
-      h(KpiCard,{label:'FY2025 GP%',value:pct(FY2025.gpPct),sub:'FY2026 YTD: '+pct(ytdGPPct),trend:fmtPct(ytdGPPct-FY2025.gpPct)+' pts',trendUp:ytdGPPct>=FY2025.gpPct}),
-      h(KpiCard,{label:'FY2025 OpEx',value:fmt(FY2025.operationalExpenses.totalOpEx),sub:'FY2026 Ann: '+fmt(ann(ytdOpEx)),trend:fmtPct((ann(ytdOpEx)-FY2025.operationalExpenses.totalOpEx)/FY2025.operationalExpenses.totalOpEx*100),trendUp:ann(ytdOpEx)<=FY2025.operationalExpenses.totalOpEx}),
-      h(KpiCard,{label:'FY2025 Net Profit',value:fmt(FY2025.netProfit),sub:'FY2026 Ann EBIDA: '+fmt(ann(ytdEBIDA))})
+    h('div',{style:{marginBottom:20,padding:'12px 16px',background:'rgba(59,130,246,0.1)',border:'1px solid rgba(59,130,246,0.3)',borderRadius:8}},
+      h('div',{style:{fontSize:13,color:'#60A5FA',fontWeight:600}},'Same-Period Comparison: Jan-'+lastMonth+' 2025 vs Jan-'+lastMonth+' 2026')
     ),
-    /* Revenue Bar Comparison */
-    h('div',{style:S.section},
-      h('div',{style:S.sectionTitle},'Monthly Revenue: FY2025 Avg vs FY2026 Actual'),
-      h('div',{style:{width:'100%',height:350}},
-        h(ResponsiveContainer,{width:'100%',height:'100%'},
-          h(BarChart,{data:yoyData,margin:{top:20,right:20,bottom:5,left:10}},
-            h(CartesianGrid,{strokeDasharray:'3 3',stroke:'#334155'}),
-            h(XAxis,{dataKey:'month',stroke:'#64748B',fontSize:12}),
-            h(YAxis,{stroke:'#64748B',fontSize:11,tickFormatter:function(v){return '$'+Math.round(v/1000)+'K';}}),
-            h(Tooltip,{formatter:function(v){return fmtFull(v);},contentStyle:{background:'#1E293B',border:'1px solid #475569',borderRadius:8,color:'#E2E8F0'}}),
-            h(Legend,null),
-            h(Bar,{dataKey:'fy2025',fill:'#475569',name:'FY2025 Monthly Avg',radius:[4,4,0,0]}),
-            h(Bar,{dataKey:'fy2026',fill:'#3B82F6',name:'FY2026 Actual',radius:[4,4,0,0]})
+    h('div',{style:S.kpiRow},
+      h(KpiCard,{label:'Revenue (Same Period)',value:fmt(ytd26Rev),sub:'2025: '+fmt(ytd25Rev),trend:fmtPct(revChange)+' YoY',trendUp:revChange>0,valueColor:revChange>0?'#10B981':'#EF4444'}),
+      h(KpiCard,{label:'Gross Profit',value:fmt(ytd26GP),sub:'2025: '+fmt(ytd25GP),trend:fmtPct(gpChange)+' YoY',trendUp:gpChange>0}),
+      h(KpiCard,{label:'OpEx',value:fmt(ytd26OpEx),sub:'2025: '+fmt(ytd25OpEx),trend:fmtPct(opexChange)+' YoY',trendUp:opexChange<=0}),
+      h(KpiCard,{label:'EBIDA',value:fmtFull(ytd26EBIDA),sub:'2025: '+fmtFull(ytd25EBIDA),trend:fmtFull(ytd26EBIDA-ytd25EBIDA)+' difference',trendUp:ytd26EBIDA>=ytd25EBIDA})
+    ),
+    h('div',{style:S.grid2},
+      h('div',{style:S.section},
+        h('div',{style:S.sectionTitle},'Monthly Revenue: 2025 vs 2026'),
+        h('div',{style:S.chartWrap},
+          h(ResponsiveContainer,{width:'100%',height:'100%'},
+            h(BarChart,{data:periodCompare,margin:{top:20,right:20,bottom:5,left:10}},
+              h(CartesianGrid,{strokeDasharray:'3 3',stroke:'#334155'}),
+              h(XAxis,{dataKey:'month',stroke:'#64748B',fontSize:12}),
+              h(YAxis,{stroke:'#64748B',fontSize:11,tickFormatter:function(v){return '$'+Math.round(v/1000)+'K';}}),
+              h(Tooltip,{formatter:function(v){return fmtFull(v);},contentStyle:{background:'#1E293B',border:'1px solid #475569',borderRadius:8,color:'#E2E8F0'}}),
+              h(Legend,null),
+              h(Bar,{dataKey:'rev2025',fill:'#475569',name:'2025',radius:[4,4,0,0]}),
+              h(Bar,{dataKey:'rev2026',fill:'#3B82F6',name:'2026',radius:[4,4,0,0]})
+            )
+          )
+        )
+      ),
+      h('div',{style:S.section},
+        h('div',{style:S.sectionTitle},'Monthly EBIDA: 2025 vs 2026'),
+        h('div',{style:S.chartWrap},
+          h(ResponsiveContainer,{width:'100%',height:'100%'},
+            h(BarChart,{data:periodCompare,margin:{top:20,right:20,bottom:5,left:10}},
+              h(CartesianGrid,{strokeDasharray:'3 3',stroke:'#334155'}),
+              h(XAxis,{dataKey:'month',stroke:'#64748B',fontSize:12}),
+              h(YAxis,{stroke:'#64748B',fontSize:11,tickFormatter:function(v){return '$'+Math.round(v/1000)+'K';}}),
+              h(Tooltip,{formatter:function(v){return fmtFull(v);},contentStyle:{background:'#1E293B',border:'1px solid #475569',borderRadius:8,color:'#E2E8F0'}}),
+              h(Legend,null),
+              h(Bar,{dataKey:'ebida2025',fill:'#475569',name:'2025',radius:[4,4,0,0]}),
+              h(Bar,{dataKey:'ebida2026',fill:'#10B981',name:'2026',radius:[4,4,0,0]})
+            )
           )
         )
       )
     ),
-    /* Expense Comparison */
     h('div',{style:S.section},
-      h('div',{style:S.sectionTitle},'Expense Category Comparison'),
+      h('div',{style:S.sectionTitle},'Same-Period P&L Comparison'),
       h(DataTable,{
-        headers:['Category','FY2025 Annual','FY2026 YTD','FY2026 Annualized','YoY Change'],
+        headers:['Metric','2025 (Jan-'+lastMonth+')','2026 (Jan-'+lastMonth+')','Change','% Change'],
         rows:[
-          ['Direct Expenses',fmtFull(FY2025.directExpenses.total),fmtFull(ytdDE),fmtFull(ann(ytdDE)),fmtPct((ann(ytdDE)-FY2025.directExpenses.total)/FY2025.directExpenses.total*100)],
-          ['HR Expense',fmtFull(FY2025.operationalExpenses.hr),fmtFull(ytdHR),fmtFull(ann(ytdHR)),fmtPct((ann(ytdHR)-FY2025.operationalExpenses.hr)/FY2025.operationalExpenses.hr*100)],
-          ['Rent & Outgoing',fmtFull(FY2025.operationalExpenses.rentOutgoing),fmtFull(ytdRent),fmtFull(ann(ytdRent)),fmtPct((ann(ytdRent)-FY2025.operationalExpenses.rentOutgoing)/FY2025.operationalExpenses.rentOutgoing*100)],
-          ['Sales Cost',fmtFull(FY2025.operationalExpenses.salesCost),fmtFull(ytdSales),fmtFull(ann(ytdSales)),fmtPct((ann(ytdSales)-FY2025.operationalExpenses.salesCost)/FY2025.operationalExpenses.salesCost*100)],
-          ['Operating Cost',fmtFull(FY2025.operationalExpenses.operatingCost),fmtFull(ytdOperating),fmtFull(ann(ytdOperating)),fmtPct((ann(ytdOperating)-FY2025.operationalExpenses.operatingCost)/FY2025.operationalExpenses.operatingCost*100)],
-          ['Total OpEx',fmtFull(FY2025.operationalExpenses.totalOpEx),fmtFull(ytdOpEx),fmtFull(ann(ytdOpEx)),fmtPct((ann(ytdOpEx)-FY2025.operationalExpenses.totalOpEx)/FY2025.operationalExpenses.totalOpEx*100)]
+          ['Revenue',fmtFull(ytd25Rev),fmtFull(ytd26Rev),fmtFull(ytd26Rev-ytd25Rev),fmtPct(revChange)],
+          ['Gross Profit',fmtFull(ytd25GP),fmtFull(ytd26GP),fmtFull(ytd26GP-ytd25GP),fmtPct(gpChange)],
+          ['GP%',pct(ytd25Rev>0?ytd25GP/ytd25Rev*100:0),pct(ytdGPPct),fmtPct(ytdGPPct-(ytd25Rev>0?ytd25GP/ytd25Rev*100:0))+' pts',''],
+          ['Total OpEx',fmtFull(ytd25OpEx),fmtFull(ytd26OpEx),fmtFull(ytd26OpEx-ytd25OpEx),fmtPct(opexChange)],
+          ['EBIDA',fmtFull(ytd25EBIDA),fmtFull(ytd26EBIDA),fmtFull(ytd26EBIDA-ytd25EBIDA),ytd25EBIDA!==0?fmtPct((ytd26EBIDA-ytd25EBIDA)/Math.abs(ytd25EBIDA)*100):'-']
         ]
       })
     ),
-    /* P&L Summary */
     h('div',{style:S.section},
-      h('div',{style:S.sectionTitle},'P&L Summary: FY2025 vs FY2026'),
+      h('div',{style:S.sectionTitle},'Month-by-Month Revenue Comparison'),
       h(DataTable,{
-        headers:['Line Item','FY2025','FY2026 YTD','FY2026 Annualized','YoY Change'],
+        headers:['Month','2025 Revenue','2026 Revenue','Difference','% Change'],
+        rows:periodCompare.map(function(d){
+          var diff = d.rev2026-d.rev2025;
+          var pctChg = d.rev2025>0?(diff/d.rev2025*100):0;
+          return [d.month,fmtFull(d.rev2025),fmtFull(d.rev2026),fmtFull(diff),fmtPct(pctChg)];
+        }).concat([['YTD Total',fmtFull(ytd25Rev),fmtFull(ytd26Rev),fmtFull(ytd26Rev-ytd25Rev),fmtPct(revChange)]]),
+        totalRow:true
+      })
+    ),
+    h('div',{style:Object.assign({},S.section,{background:'linear-gradient(135deg,#1E293B,#0F172A)'})},
+      h('div',{style:S.sectionTitle},'Full Year Outlook'),
+      h(DataTable,{
+        headers:['Metric','FY2025 Full Year','FY2026 Annualized','YoY Change'],
         rows:[
-          ['Total Revenue',fmtFull(FY2025.revenue.total),fmtFull(ytdRevenue),fmtFull(fy26AnnRev),fmtPct(revChange)],
-          ['Direct Expenses',fmtFull(FY2025.directExpenses.total),fmtFull(ytdDE),fmtFull(ann(ytdDE)),fmtPct((ann(ytdDE)-FY2025.directExpenses.total)/FY2025.directExpenses.total*100)],
-          ['Gross Profit',fmtFull(FY2025.grossProfit),fmtFull(ytdGP),fmtFull(ann(ytdGP)),fmtPct((ann(ytdGP)-FY2025.grossProfit)/FY2025.grossProfit*100)],
-          ['GP%',pct(FY2025.gpPct),pct(ytdGPPct),pct(ytdGPPct),fmtPct(ytdGPPct-FY2025.gpPct)+' pts'],
-          ['Total OpEx',fmtFull(FY2025.operationalExpenses.totalOpEx),fmtFull(ytdOpEx),fmtFull(ann(ytdOpEx)),fmtPct((ann(ytdOpEx)-FY2025.operationalExpenses.totalOpEx)/FY2025.operationalExpenses.totalOpEx*100)],
-          ['Net Profit / EBIDA',fmtFull(FY2025.netProfit),fmtFull(ytdEBIDA),fmtFull(ann(ytdEBIDA)),fmtPct((ann(ytdEBIDA)-FY2025.netProfit)/Math.abs(FY2025.netProfit)*100)]
+          ['Revenue',fmtFull(FY2025.revenue.total),fmtFull(projectedAnnual),fmtPct((projectedAnnual-FY2025.revenue.total)/FY2025.revenue.total*100)],
+          ['Direct Expenses',fmtFull(FY2025.directExpenses.total),fmtFull(ytdDE*(12/monthsElapsed)),fmtPct(((ytdDE*12/monthsElapsed)-FY2025.directExpenses.total)/FY2025.directExpenses.total*100)],
+          ['Gross Profit',fmtFull(FY2025.grossProfit),fmtFull(ytdGP*(12/monthsElapsed)),fmtPct(((ytdGP*12/monthsElapsed)-FY2025.grossProfit)/FY2025.grossProfit*100)],
+          ['GP%',pct(FY2025.gpPct),pct(ytdGPPct),fmtPct(ytdGPPct-FY2025.gpPct)+' pts'],
+          ['Total OpEx',fmtFull(FY2025.operationalExpenses.totalOpEx),fmtFull(ytdOpEx*(12/monthsElapsed)),fmtPct(((ytdOpEx*12/monthsElapsed)-FY2025.operationalExpenses.totalOpEx)/FY2025.operationalExpenses.totalOpEx*100)],
+          ['Net Profit / EBIDA',fmtFull(FY2025.netProfit),fmtFull(ytdEBIDA*(12/monthsElapsed)),fmtPct(((ytdEBIDA*12/monthsElapsed)-FY2025.netProfit)/Math.abs(FY2025.netProfit)*100)]
         ]
       })
     )
@@ -635,13 +812,12 @@ function YoYTab(){
 }
 
 /* ========== MAIN APP ========== */
-var TABS = ['Overview','Operational Expenses','Debt','Cash Prediction','Scenarios','YoY Comparison'];
+var TABS = ['Overview','Operational Expenses','Debt','Cash Prediction','Scenarios','Compare with 2025'];
 
 function App(){
   var state = useState(0);
   var activeTab = state[0];
   var setTab = state[1];
-
   var tabContent;
   switch(activeTab){
     case 0:tabContent=h(OverviewTab);break;
@@ -649,12 +825,10 @@ function App(){
     case 2:tabContent=h(DebtTab);break;
     case 3:tabContent=h(CashTab);break;
     case 4:tabContent=h(ScenariosTab);break;
-    case 5:tabContent=h(YoYTab);break;
+    case 5:tabContent=h(CompareTab);break;
     default:tabContent=h(OverviewTab);
   }
-
   return h('div',{style:{minHeight:'100vh',background:'#0B1120'}},
-    /* Header */
     h('div',{style:S.header},
       h('div',{style:{display:'flex',alignItems:'center',gap:16}},
         h('div',{style:{width:10,height:10,borderRadius:'50%',background:latestCash>50000?'#10B981':'#EF4444',boxShadow:'0 0 8px '+(latestCash>50000?'#10B981':'#EF4444')}}),
@@ -665,15 +839,12 @@ function App(){
         h('div',{style:{fontSize:12,color:'#64748B'}},'Data: Feb 2026 | Generated: '+new Date().toLocaleDateString())
       )
     ),
-    /* Tab Navigation */
     h('div',{style:S.nav},
       TABS.map(function(tab,i){
         return h('button',{key:i,style:activeTab===i?S.navBtnActive:S.navBtn,onClick:function(){setTab(i);}},tab);
       })
     ),
-    /* Tab Content */
     h('div',{style:S.content},tabContent),
-    /* Footer */
     h('div',{style:S.footer},'Shafston International College | Financial Dashboard 2026 | Data sourced from Xero | Updated '+new Date().toLocaleDateString())
   );
 }
