@@ -1,14 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Shafston 2026 Financial Dashboard</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #0B1120; color: #E2E8F0; font-family: 'Inter', -apple-system, sans-serif; }
-  #loading { color: #94A3B8; padding: 40px; font-size: 16px; }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0B1120;color:#E2E8F0;font-family:'Inter',system-ui,sans-serif;min-height:100vh}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:#1E293B}
+::-webkit-scrollbar-thumb{background:#475569;border-radius:3px}
 </style>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -16,412 +18,667 @@
 <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js" crossorigin></script>
 </head>
 <body>
-<div id="root"><p id="loading">Loading dashboard…</p></div>
+<div id="root"></div>
 <script>
-window.onerror = function(msg, src, line) {
-  document.getElementById('root').innerHTML = '<p style="color:#EF4444;padding:40px;font-size:16px;">Dashboard Error: ' + msg + ' (line ' + line + ')</p>';
+window.onerror=function(msg,src,line){document.getElementById('root').innerHTML='<p style="color:#EF4444;padding:40px;font-size:18px;">Dashboard Error: '+msg+' (line '+line+')</p>';};
+
+var h = React.createElement;
+var useState = React.useState;
+var useMemo = React.useMemo;
+var RC = Recharts;
+var BarChart=RC.BarChart, Bar=RC.Bar, LineChart=RC.LineChart, Line=RC.Line,
+    AreaChart=RC.AreaChart, Area=RC.Area, PieChart=RC.PieChart, Pie=RC.Pie, Cell=RC.Cell,
+    ComposedChart=RC.ComposedChart, XAxis=RC.XAxis, YAxis=RC.YAxis,
+    CartesianGrid=RC.CartesianGrid, Tooltip=RC.Tooltip, Legend=RC.Legend,
+    ResponsiveContainer=RC.ResponsiveContainer, ReferenceLine=RC.ReferenceLine,
+    LabelList=RC.LabelList;
+
+/* ========== DATA CONSTANTS ========== */
+var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var MONTHLY_TARGETS = {Jan:350000,Feb:400000,Mar:350000,Apr:350000,May:300000,Jun:350000,Jul:700000,Aug:800000,Sep:600000,Oct:500000,Nov:500000,Dec:500000};
+var ANNUAL_TARGET = 5700000;
+var BREAKEVEN_EXCL = 3600000;
+var BREAKEVEN_INCL = 5100000;
+
+var PRODUCT_LINES = [
+  {key:'ST',name:'Study Tour',targetRev:1800000,targetGP:51.0,deRate:0.49,color:'#0A6EBD'},
+  {key:'SA',name:'Student Arrival',targetRev:1200000,targetGP:37.0,deRate:0.63,color:'#12A89D'},
+  {key:'U18',name:'U18',targetRev:500000,targetGP:48.0,deRate:0.52,color:'#F29727'},
+  {key:'YLC',name:'YLC',targetRev:300000,targetGP:48.0,deRate:0.52,color:'#E74C3C'},
+  {key:'Other',name:'Other',targetRev:1900000,targetGP:71.0,deRate:0.29,color:'#8B5CF6'}
+];
+
+var COST_BUDGET = {hr:97347,rent:31683,opex:12833,sales:25839};
+var MONTHLY_OPEX_BUDGET = 97347+31683+12833+25839;
+
+var DEBT_OPENING = {ato:732359,refund:72553,commission:334467,stExpenses:0,opex:496337,payrollTax:82108,total:1775246};
+var MONTHLY_DEBT_TARGET = 64265;
+
+var SCENARIOS = [
+  {name:'Floor',revenue:3232000,gp:1628000,gpPct:50.4,ebida:-2000,netEbida:-773000},
+  {name:'Downside',revenue:4162000,gp:2101000,gpPct:50.5,ebida:291000,netEbida:-480000},
+  {name:'Target',revenue:5700000,gp:2959000,gpPct:51.9,ebida:947000,netEbida:175000}
+];
+
+var FY2025 = {
+  revenue:{total:9713940,netRevenue:8706798,commission:1007142},
+  directExpenses:{teachingCost:1585044,stYlcCost:894001,saCost:1062233,total:3541278},
+  grossProfit:5165519,gpPct:59.3,
+  operationalExpenses:{hr:2430256,rentOutgoing:632027,salesCost:290262,operatingCost:972222,totalOpEx:4324767},
+  netProfit:840753
 };
-const { useState, useMemo } = React;
-const { BarChart, Bar, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } = Recharts;
 
-const MONTHLY_TARGETS = { Jan:350000,Feb:400000,Mar:350000,Apr:350000,May:300000,Jun:350000,Jul:700000,Aug:800000,Sep:600000,Oct:500000,Nov:500000,Dec:500000 };
-const ANNUAL_TARGET = 5700000;
-const PRODUCT_LINES = [
-  { key:"ST", name:"Study Tour", targetRev:1800000, targetGP:50.0, deRate:0.50, color:"#0A6EBD" },
-  { key:"SA", name:"Student Arrival", targetRev:1200000, targetGP:35.0, deRate:0.65, color:"#12A89D" },
-  { key:"U18", name:"U18", targetRev:500000, targetGP:48.2, deRate:0.52, color:"#F29727" },
-  { key:"YLC", name:"YLC", targetRev:300000, targetGP:48.2, deRate:0.52, color:"#E74C3C" },
-  { key:"Other", name:"Other", targetRev:1900000, targetGP:85.0, deRate:0.34, color:"#8B5CF6" },
-];
-const SCENARIOS = [
-  { name:"Floor", revenue:3232000, gp:1628000, gpPct:50.4, ebida:-2000, netEbida:-773000 },
-  { name:"Downside", revenue:4162000, gp:2101000, gpPct:50.5, ebida:291000, netEbida:-480000 },
-  { name:"Target", revenue:5700000, gp:2959000, gpPct:51.9, ebida:947000, netEbida:175000 },
-];
-const DEBT_OPENING = { super:114064, ato:735359, refund:72553, commission:344369, stExpenses:4416, opex:502568, payrollTax:88951 };
-const DEBT_OPENING_TOTAL = Object.values(DEBT_OPENING).reduce((a,b)=>a+b,0);
-
-const MONTHLY_DATA = [
-  { month:"Jan", target:350000, revenue:373107, revST:269290, revSA:24124, revU18:4990, revYLC:-2916, revOther:77619,
-    de:81991, deST:19758, deSA:26582, deU18:15430, deYLC:4180, deOther:16041,
-    hr:107677, otherExp:150051, cash:216746, superDebt:76827, atoDebt:725312, debtTotal:1862280, capitalInj:0 },
-  { month:"Feb", target:400000, revenue:615984, revST:412785, revSA:38972, revU18:46315, revYLC:2044, revOther:115869,
-    de:213512, deST:91947, deSA:83433, deU18:27925, deYLC:3237, deOther:6970,
-    hr:173330, otherExp:112578, cash:138509, superDebt:37839, atoDebt:740216, debtTotal:2123464, capitalInj:0 },
+/* Actual monthly data from Xero — Feb 2026 report */
+var MONTHLY_DATA = [
+  {month:'Jan',target:350000,
+    revenue:{st:269290,sa:24124,u18:4990,ylc:-2916,other:77619,total:373107},
+    de:{st:16612,sa:26582,u18:15430,ylc:4180,other:14831,total:77635},
+    gp:295472,gpPct:79.2,
+    opex:{hr:109344,rent:46208,sales:14479,operating:92053,total:262084},
+    ebida:33389,cash:216746,super_:76827,ato:725312},
+  {month:'Feb',target:400000,
+    revenue:{st:412785,sa:38972,u18:46315,ylc:2044,other:115869,total:615984},
+    de:{st:91055,sa:83433,u18:27925,ylc:3237,other:5590,total:211240},
+    gp:404744,gpPct:65.7,
+    opex:{hr:140781,rent:70970,sales:1204,operating:42944,total:255899},
+    ebida:148846,cash:138215,super_:37839,ato:740216}
 ];
 
-const MONTHS_ALL = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const fmt = (n) => { if(n==null) return "—"; const a=Math.abs(n); if(a>=1e6) return (n<0?"-":"")+"$"+(a/1e6).toFixed(2)+"M"; if(a>=1000) return (n<0?"-":"")+"$"+(a/1000).toFixed(0)+"K"; return "$"+n.toFixed(0); };
-const fmtFull = (n) => { if(n==null) return "—"; return "$"+Math.round(n).toLocaleString(); };
-const pct = (n,d) => (d&&d!==0?((n/d)*100).toFixed(1)+"%":"—");
+var DEBT_CURRENT = {ato:740216,refund:80853,commission:429041,stExpenses:96,opex:835421,payrollTax:0};
+var DEBT_TOTAL = 740216+80853+429041+96+835421+0;
 
-function useMetrics() {
-  return useMemo(() => {
-    const c = MONTHLY_DATA;
-    const me = c.length;
-    const ytdRev = c.reduce((s,m)=>s+m.revenue,0);
-    const ytdTgt = c.reduce((s,m)=>s+m.target,0);
-    const ytdDE = c.reduce((s,m)=>s+m.de,0);
-    const ytdHR = c.reduce((s,m)=>s+m.hr,0);
-    const ytdOth = c.reduce((s,m)=>s+m.otherExp,0);
-    const ytdGP = ytdRev-ytdDE;
-    const ytdGPPct = ytdRev>0?(ytdGP/ytdRev)*100:0;
-    const ytdEBIDA = ytdGP-ytdHR-ytdOth;
-    const proj = me>0?(ytdRev/me)*12:0;
-    const cash = c.length>0?c[c.length-1].cash:0;
-    const debt = c.length>0?c[c.length-1].debtTotal:DEBT_OPENING_TOTAL;
-    const dPaid = DEBT_OPENING_TOTAL-debt;
-    const compPct = (ytdRev/ANNUAL_TARGET)*100;
-    let scen = "Below Floor";
-    if(proj>=5700000) scen="On Target"; else if(proj>=4162000) scen="Downside"; else if(proj>=3232000) scen="Floor";
-    const productYTD = PRODUCT_LINES.map(pl=>{
-      const rev=c.reduce((s,m)=>s+(m[`rev${pl.key}`]||0),0);
-      const de=c.reduce((s,m)=>s+(m[`de${pl.key}`]||0),0);
-      const gp=rev-de; const gpPct=rev>0?(gp/rev)*100:0;
-      const prt=(pl.targetRev/12)*me; const prog=prt>0?(rev/prt)*100:0;
-      return {...pl,rev,de,gp,gpPct,proRataTarget:prt,progress:prog};
-    });
-    const chartData = MONTHS_ALL.map(month=>{
-      const a=c.find(m=>m.month===month);
-      return { month, target:MONTHLY_TARGETS[month], actual:a?a.revenue:null, cash:a?a.cash:null, debt:a?a.debtTotal:null };
-    });
-    let cumT=0,cumA=0;
-    const cumData = MONTHS_ALL.map(month=>{
-      cumT+=MONTHLY_TARGETS[month]; const a=c.find(m=>m.month===month);
-      if(a)cumA+=a.revenue;
-      return {month,cumTarget:cumT,cumActual:a?cumA:null};
-    });
-    const latest=c[c.length-1];
-    const debtBD=latest?[
-      {name:"Super",value:latest.superDebt,color:"#0A6EBD"},
-      {name:"ATO",value:latest.atoDebt,color:"#E74C3C"},
-      {name:"Refund",value:80853,color:"#F29727"},
-      {name:"OPEX",value:1264557,color:"#8B5CF6"},
-    ].filter(d=>d.value>0):[];
-    return { monthsElapsed:me,ytdRevenue:ytdRev,ytdTarget:ytdTgt,ytdDE,ytdHR,ytdOther:ytdOth,ytdGP,ytdGPPct,ytdEBIDA,projected:proj,
-      latestCash:cash,latestDebt:debt,debtPaid:dPaid,completionPct:compPct,scenario:scen,productYTD,chartData,cumulativeData:cumData,debtBreakdown:debtBD,completed:c };
-  },[]);
+/* Predictions from AR invoices and ST Quotation */
+var PREDICTIONS = {
+  Mar:{col_e:97734,col_d:null,source:'1-Month Accrued'},
+  Apr:{col_e:null,col_d:197777,source:'AI 2-Month'},
+  May:{col_e:null,col_d:null,source:'Target'}
+};
+
+/* ========== UTILITIES ========== */
+function fmt(n){if(n==null)return'-';var abs=Math.abs(n);var s=abs>=1000000?'$'+(abs/1000000).toFixed(1)+'M':abs>=1000?'$'+Math.round(abs/1000).toLocaleString()+'K':'$'+Math.round(abs).toLocaleString();return n<0?'-'+s:s;}
+function fmtFull(n){if(n==null)return'-';return(n<0?'-$':'$')+Math.abs(Math.round(n)).toLocaleString();}
+function fmtPct(n){return n==null?'-':(n>=0?'+':'')+n.toFixed(1)+'%';}
+function pct(n){return n==null?'-':n.toFixed(1)+'%';}
+
+/* ========== COMPUTED METRICS ========== */
+var monthsElapsed = MONTHLY_DATA.length;
+var ytdRevenue = MONTHLY_DATA.reduce(function(s,m){return s+m.revenue.total;},0);
+var ytdTarget = MONTHLY_DATA.reduce(function(s,m){return s+m.target;},0);
+var ytdCompletion = ytdRevenue/ytdTarget*100;
+var annualCompletion = ytdRevenue/ANNUAL_TARGET*100;
+var projectedAnnual = (ytdRevenue/monthsElapsed)*12;
+var latestCash = MONTHLY_DATA[MONTHLY_DATA.length-1].cash;
+var ytdGP = MONTHLY_DATA.reduce(function(s,m){return s+m.gp;},0);
+var ytdGPPct = ytdGP/ytdRevenue*100;
+var ytdDE = MONTHLY_DATA.reduce(function(s,m){return s+m.de.total;},0);
+var ytdHR = MONTHLY_DATA.reduce(function(s,m){return s+m.opex.hr;},0);
+var ytdRent = MONTHLY_DATA.reduce(function(s,m){return s+m.opex.rent;},0);
+var ytdSales = MONTHLY_DATA.reduce(function(s,m){return s+m.opex.sales;},0);
+var ytdOperating = MONTHLY_DATA.reduce(function(s,m){return s+m.opex.operating;},0);
+var ytdOpEx = ytdHR+ytdRent+ytdSales+ytdOperating;
+var ytdEBIDA = MONTHLY_DATA.reduce(function(s,m){return s+m.ebida;},0);
+var debtPaid = DEBT_OPENING.total-DEBT_TOTAL;
+var scenarioLabel = projectedAnnual>=5700000?'ON TARGET':projectedAnnual>=4162000?'DOWNSIDE':projectedAnnual>=3232000?'FLOOR':'BELOW FLOOR';
+var scenarioColor = projectedAnnual>=5700000?'#10B981':projectedAnnual>=4162000?'#F59E0B':'#EF4444';
+
+/* Cumulative data for area chart */
+var cumulativeData = [];
+var cumActual=0, cumTarget=0;
+MONTHS.forEach(function(m,i){
+  cumTarget += MONTHLY_TARGETS[m];
+  var md = MONTHLY_DATA.find(function(d){return d.month===m;});
+  if(md){cumActual += md.revenue.total;cumulativeData.push({month:m,actual:cumActual,target:cumTarget});}
+  else{cumulativeData.push({month:m,actual:null,target:cumTarget});}
+});
+
+/* Product YTD aggregation */
+var productYTD = PRODUCT_LINES.map(function(pl){
+  var k = pl.key.toLowerCase();
+  var rev=0,de=0;
+  MONTHLY_DATA.forEach(function(m){rev+=(m.revenue[k]||0);de+=(m.de[k]||0);});
+  var gp=rev-de;
+  return{key:pl.key,name:pl.name,color:pl.color,rev:rev,de:de,gp:gp,gpPct:rev>0?gp/rev*100:0,targetRev:pl.targetRev,targetGP:pl.targetGP,progress:rev/pl.targetRev*100};
+});
+
+/* Chart data */
+var monthlyChartData = MONTHLY_DATA.map(function(m){return{month:m.month,actual:m.revenue.total,target:m.target};});
+var opexChartData = MONTHLY_DATA.map(function(m){return{month:m.month,hr:m.opex.hr,rent:m.opex.rent,sales:m.opex.sales,operating:m.opex.operating};});
+var avgMonthly = ytdRevenue/monthsElapsed;
+
+/* Debt pie */
+var debtPieData = [
+  {name:'ATO',value:DEBT_CURRENT.ato,color:'#EF4444'},
+  {name:'Commission',value:DEBT_CURRENT.commission,color:'#3B82F6'},
+  {name:'OPEX',value:DEBT_CURRENT.opex,color:'#8B5CF6'},
+  {name:'Refund',value:DEBT_CURRENT.refund,color:'#F59E0B'},
+  {name:'ST Expenses',value:DEBT_CURRENT.stExpenses,color:'#10B981'}
+].filter(function(d){return d.value>0;});
+
+/* Cash forecast */
+var cashForecast = [];
+var prevCash = latestCash;
+['Mar','Apr','May'].forEach(function(m){
+  var pred = PREDICTIONS[m]||{};
+  var bestRev = pred.col_e||pred.col_d||MONTHLY_TARGETS[m];
+  var predDE = Math.round(bestRev*0.45);
+  var predHR = COST_BUDGET.hr;
+  var predOther = COST_BUDGET.rent+COST_BUDGET.sales+COST_BUDGET.opex;
+  var debt = MONTHLY_DEBT_TARGET;
+  var closing = Math.round(prevCash+bestRev-predDE-predHR-predOther-debt);
+  cashForecast.push({month:m,opening:prevCash,revenue:bestRev,de:predDE,hr:predHR,other:predOther,debt:debt,closing:closing,source:pred.source||'Target'});
+  prevCash=closing;
+});
+
+var cashTrendData = MONTHLY_DATA.map(function(m){return{month:m.month,cash:m.cash,projected:null};}).concat(
+  cashForecast.map(function(f){return{month:f.month,cash:null,projected:f.closing};})
+);
+
+/* ========== STYLES ========== */
+var S = {
+  header:{background:'linear-gradient(135deg,#0F172A 0%,#1E293B 100%)',padding:'16px 32px',display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:'1px solid #334155',position:'sticky',top:0,zIndex:100},
+  headerTitle:{fontSize:20,fontWeight:700,color:'#F8FAFC',letterSpacing:'-0.02em'},
+  badge:{padding:'4px 12px',borderRadius:20,fontSize:11,fontWeight:700,letterSpacing:'0.05em'},
+  nav:{display:'flex',gap:4,padding:'12px 32px',background:'#0F172A',borderBottom:'1px solid #1E293B',flexWrap:'wrap'},
+  navBtn:{padding:'8px 16px',borderRadius:8,border:'1px solid transparent',cursor:'pointer',fontSize:13,fontWeight:500,background:'transparent',color:'#94A3B8',transition:'all 0.2s'},
+  navBtnActive:{padding:'8px 16px',borderRadius:8,border:'1px solid #3B82F6',cursor:'pointer',fontSize:13,fontWeight:600,background:'rgba(59,130,246,0.15)',color:'#60A5FA'},
+  content:{padding:'24px 32px',maxWidth:1400,margin:'0 auto'},
+  kpiRow:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:16,marginBottom:24},
+  kpi:{background:'linear-gradient(135deg,#1E293B,#0F172A)',borderRadius:12,padding:'20px',border:'1px solid #334155',position:'relative',overflow:'hidden'},
+  kpiLabel:{fontSize:12,color:'#94A3B8',fontWeight:500,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8},
+  kpiValue:{fontSize:28,fontWeight:800,color:'#F8FAFC',fontFeatureSettings:'"tnum"',letterSpacing:'-0.02em'},
+  kpiSub:{fontSize:12,color:'#64748B',marginTop:6},
+  kpiTrend:{fontSize:12,fontWeight:600,marginTop:6},
+  section:{background:'#1E293B',borderRadius:12,padding:24,border:'1px solid #334155',marginBottom:24},
+  sectionTitle:{fontSize:16,fontWeight:700,color:'#F8FAFC',marginBottom:16},
+  chartWrap:{width:'100%',height:320},
+  grid2:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24,marginBottom:24},
+  table:{width:'100%',borderCollapse:'collapse',fontSize:13},
+  th:{padding:'10px 12px',textAlign:'left',borderBottom:'2px solid #334155',color:'#94A3B8',fontWeight:600,fontSize:11,textTransform:'uppercase',letterSpacing:'0.05em'},
+  td:{padding:'10px 12px',borderBottom:'1px solid #1E293B',color:'#E2E8F0',fontFeatureSettings:'"tnum"'},
+  tdRight:{padding:'10px 12px',borderBottom:'1px solid #1E293B',color:'#E2E8F0',fontFeatureSettings:'"tnum"',textAlign:'right'},
+  productCard:{background:'linear-gradient(135deg,#0F172A,#1E293B)',borderRadius:10,padding:16,border:'1px solid #334155'},
+  progressBar:{height:6,background:'#1E293B',borderRadius:3,overflow:'hidden',marginTop:8},
+  progressFill:{height:'100%',borderRadius:3,transition:'width 0.5s ease'},
+  footer:{textAlign:'center',padding:'16px',color:'#475569',fontSize:11}
+};
+
+/* ========== SHARED COMPONENTS ========== */
+function KpiCard(props){
+  var glowColor = props.alert==='red'?'rgba(239,68,68,0.15)':props.alert==='amber'?'rgba(245,158,11,0.15)':'transparent';
+  var borderColor = props.alert==='red'?'#EF4444':props.alert==='amber'?'#F59E0B':'#334155';
+  var trendColor = props.trendUp===true?'#10B981':props.trendUp===false?'#EF4444':'#94A3B8';
+  return h('div',{style:Object.assign({},S.kpi,{boxShadow:'0 0 20px '+glowColor,borderColor:borderColor})},
+    h('div',{style:S.kpiLabel},props.label),
+    h('div',{style:S.kpiValue},props.value),
+    props.sub?h('div',{style:S.kpiSub},props.sub):null,
+    props.trend?h('div',{style:Object.assign({},S.kpiTrend,{color:trendColor})},props.trend):null
+  );
 }
 
-const TT = ({active,payload,label}) => {
-  if(!active||!payload) return null;
-  return React.createElement('div',{style:{background:"#1E293B",border:"1px solid #475569",borderRadius:8,padding:"10px 14px",fontSize:12}},
-    React.createElement('div',{style:{fontWeight:600,marginBottom:6,color:"#F8FAFC"}},label),
-    payload.map((p,i)=>React.createElement('div',{key:i,style:{color:p.color||"#94A3B8",marginBottom:2}},p.name+": "+fmtFull(p.value)))
-  );
-};
-
-function App() {
-  const [view,setView] = useState("overview");
-  const m = useMetrics();
-  const cashOk = m.latestCash>=50000;
-
-  const tabs = [{k:"overview",l:"Overview"},{k:"revenue",l:"Revenue"},{k:"products",l:"Products"},{k:"cashdebt",l:"Cash & Debt"},{k:"scenarios",l:"Scenarios"}];
-
-  const kpiCard = (label,value,sub,alert,valColor) => React.createElement('div',{style:alert?
-    {background:"#1E293B",borderRadius:12,padding:"18px 20px",border:"1px solid #EF4444",boxShadow:"0 0 12px rgba(239,68,68,0.3)"}:
-    {background:"#1E293B",borderRadius:12,padding:"18px 20px",border:"1px solid #334155"}},
-    React.createElement('div',{style:{fontSize:12,color:"#94A3B8",textTransform:"uppercase",letterSpacing:0.5,marginBottom:4}},label),
-    React.createElement('div',{style:{fontSize:26,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",color:valColor||"#F8FAFC"}},value),
-    sub&&React.createElement('div',{style:{fontSize:12,marginTop:4,color:"#94A3B8"}},sub)
-  );
-
-  const badge = (text,color) => React.createElement('span',{style:{background:color,color:"#fff",fontSize:11,fontWeight:600,padding:"3px 10px",borderRadius:12,textTransform:"uppercase"}},text);
-
-  // Overview
-  const overview = () => React.createElement('div',null,
-    React.createElement('div',{style:{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:16,marginBottom:20}},
-      kpiCard("YTD Revenue",fmt(m.ytdRevenue),pct(m.ytdRevenue,m.ytdTarget)+" of target"),
-      kpiCard("Annual Completion",m.completionPct.toFixed(1)+"%",m.monthsElapsed+"/12 months"),
-      kpiCard("Projected Annual",fmt(m.projected),React.createElement('span',null,badge(m.scenario,m.scenario==="On Target"?"#22C55E":m.scenario==="Downside"?"#F59E0B":"#EF4444"))),
-      kpiCard("Cash Position",fmt(m.latestCash),cashOk?"Above $50K":"BELOW $50K ALERT",!cashOk,cashOk?"#22C55E":"#EF4444"),
-      kpiCard("Total Debt",fmt(m.latestDebt),(m.debtPaid>0?"Paid ":"Increased ")+fmt(Math.abs(m.debtPaid))),
-      kpiCard("Gross Profit %",m.ytdGPPct.toFixed(1)+"%","Target: 51.9%",false,m.ytdGPPct>=50?"#22C55E":"#F59E0B")
-    ),
-    React.createElement('div',{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}},
-      React.createElement('div',{style:{background:"#1E293B",borderRadius:12,padding:20,border:"1px solid #334155"}},
-        React.createElement('div',{style:{fontSize:15,fontWeight:600,color:"#F8FAFC",marginBottom:14}},"Monthly Revenue vs Target"),
-        React.createElement(ResponsiveContainer,{width:"100%",height:260},
-          React.createElement(BarChart,{data:m.chartData.slice(0,6)},
-            React.createElement(CartesianGrid,{strokeDasharray:"3 3",stroke:"#334155"}),
-            React.createElement(XAxis,{dataKey:"month",stroke:"#94A3B8",fontSize:12}),
-            React.createElement(YAxis,{stroke:"#94A3B8",fontSize:11,tickFormatter:fmt}),
-            React.createElement(Tooltip,{content:React.createElement(TT)}),
-            React.createElement(Bar,{dataKey:"target",fill:"#334155",radius:[4,4,0,0],name:"Target"}),
-            React.createElement(Bar,{dataKey:"actual",fill:"#3B82F6",radius:[4,4,0,0],name:"Actual"})
-          )
-        )
-      ),
-      React.createElement('div',{style:{background:"#1E293B",borderRadius:12,padding:20,border:"1px solid #334155"}},
-        React.createElement('div',{style:{fontSize:15,fontWeight:600,color:"#F8FAFC",marginBottom:14}},"Revenue by Product (YTD)"),
-        React.createElement(ResponsiveContainer,{width:"100%",height:260},
-          React.createElement(PieChart,null,
-            React.createElement(Pie,{data:m.productYTD.filter(p=>p.rev>0),dataKey:"rev",nameKey:"name",cx:"50%",cy:"50%",outerRadius:100,
-              label:({name,percent})=>name+" "+(percent*100).toFixed(0)+"%"},
-              m.productYTD.filter(p=>p.rev>0).map((p,i)=>React.createElement(Cell,{key:i,fill:p.color}))
-            ),
-            React.createElement(Tooltip,{formatter:v=>fmtFull(v)})
-          )
-        )
-      )
-    ),
-    // Monthly table
-    React.createElement('div',{style:{background:"#1E293B",borderRadius:12,padding:20,border:"1px solid #334155"}},
-      React.createElement('div',{style:{fontSize:15,fontWeight:600,color:"#F8FAFC",marginBottom:14}},"Monthly Detail"),
-      React.createElement('table',{style:{width:"100%",borderCollapse:"collapse",fontSize:13}},
-        React.createElement('thead',null,
-          React.createElement('tr',null,
-            ["Month","Target","Actual","Completion","GP","GP%","EBIDA","Cash","Debt"].map(h=>
-              React.createElement('th',{key:h,style:{textAlign:"left",padding:"10px 12px",borderBottom:"1px solid #334155",color:"#94A3B8",fontWeight:600,fontSize:11,textTransform:"uppercase"}},h)
-            )
-          )
-        ),
-        React.createElement('tbody',null,
-          m.completed.map(d=>{
-            const gp=d.revenue-d.de;const eb=gp-d.hr-d.otherExp;
-            return React.createElement('tr',{key:d.month},
-              React.createElement('td',{style:{padding:"10px 12px",borderBottom:"1px solid #1E293B",fontFamily:"monospace"}},d.month),
-              React.createElement('td',{style:{padding:"10px 12px",borderBottom:"1px solid #1E293B",fontFamily:"monospace"}},fmtFull(d.target)),
-              React.createElement('td',{style:{padding:"10px 12px",borderBottom:"1px solid #1E293B",fontFamily:"monospace",color:d.revenue>=d.target?"#22C55E":"#F59E0B"}},fmtFull(d.revenue)),
-              React.createElement('td',{style:{padding:"10px 12px",borderBottom:"1px solid #1E293B",fontFamily:"monospace"}},pct(d.revenue,d.target)),
-              React.createElement('td',{style:{padding:"10px 12px",borderBottom:"1px solid #1E293B",fontFamily:"monospace"}},fmtFull(gp)),
-              React.createElement('td',{style:{padding:"10px 12px",borderBottom:"1px solid #1E293B",fontFamily:"monospace"}},pct(gp,d.revenue)),
-              React.createElement('td',{style:{padding:"10px 12px",borderBottom:"1px solid #1E293B",fontFamily:"monospace",color:eb>=0?"#22C55E":"#EF4444"}},fmtFull(eb)),
-              React.createElement('td',{style:{padding:"10px 12px",borderBottom:"1px solid #1E293B",fontFamily:"monospace",color:d.cash>=50000?"#F8FAFC":"#EF4444"}},fmtFull(d.cash)),
-              React.createElement('td',{style:{padding:"10px 12px",borderBottom:"1px solid #1E293B",fontFamily:"monospace"}},fmt(d.debtTotal))
-            );
-          }),
-          React.createElement('tr',{style:{fontWeight:700,borderTop:"2px solid #475569"}},
-            React.createElement('td',{style:{padding:"10px 12px",fontFamily:"monospace"}},"YTD"),
-            React.createElement('td',{style:{padding:"10px 12px",fontFamily:"monospace"}},fmtFull(m.ytdTarget)),
-            React.createElement('td',{style:{padding:"10px 12px",fontFamily:"monospace",color:"#3B82F6"}},fmtFull(m.ytdRevenue)),
-            React.createElement('td',{style:{padding:"10px 12px",fontFamily:"monospace"}},pct(m.ytdRevenue,m.ytdTarget)),
-            React.createElement('td',{style:{padding:"10px 12px",fontFamily:"monospace"}},fmtFull(m.ytdGP)),
-            React.createElement('td',{style:{padding:"10px 12px",fontFamily:"monospace"}},m.ytdGPPct.toFixed(1)+"%"),
-            React.createElement('td',{style:{padding:"10px 12px",fontFamily:"monospace",color:m.ytdEBIDA>=0?"#22C55E":"#EF4444"}},fmtFull(m.ytdEBIDA)),
-            React.createElement('td',{style:{padding:"10px 12px",fontFamily:"monospace"}},fmtFull(m.latestCash)),
-            React.createElement('td',{style:{padding:"10px 12px",fontFamily:"monospace"}},fmt(m.latestDebt))
-          )
-        )
-      )
+function DataTable(props){
+  return h('div',{style:{overflowX:'auto'}},
+    h('table',{style:S.table},
+      h('thead',null,h('tr',null,props.headers.map(function(hd,i){
+        return h('th',{key:i,style:Object.assign({},S.th,i>0?{textAlign:'right'}:{})},hd);
+      }))),
+      h('tbody',null,props.rows.map(function(row,ri){
+        var isTotal = ri===props.rows.length-1&&props.totalRow;
+        return h('tr',{key:ri,style:isTotal?{fontWeight:700,borderTop:'2px solid #334155'}:{}},
+          row.map(function(cell,ci){return h('td',{key:ci,style:ci>0?S.tdRight:S.td},cell);})
+        );
+      }))
     )
   );
+}
 
-  // Revenue
-  const revenue = () => React.createElement('div',null,
-    React.createElement('div',{style:{fontSize:18,fontWeight:700,color:"#F8FAFC",marginBottom:16}},"Revenue Analysis"),
-    React.createElement('div',{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}},
-      React.createElement('div',{style:{background:"#1E293B",borderRadius:12,padding:20,border:"1px solid #334155"}},
-        React.createElement('div',{style:{fontSize:15,fontWeight:600,color:"#F8FAFC",marginBottom:14}},"Monthly Actual vs Target"),
-        React.createElement(ResponsiveContainer,{width:"100%",height:300},
-          React.createElement(ComposedChart,{data:m.chartData},
-            React.createElement(CartesianGrid,{strokeDasharray:"3 3",stroke:"#334155"}),
-            React.createElement(XAxis,{dataKey:"month",stroke:"#94A3B8",fontSize:12}),
-            React.createElement(YAxis,{stroke:"#94A3B8",fontSize:11,tickFormatter:fmt}),
-            React.createElement(Tooltip,{content:React.createElement(TT)}),
-            React.createElement(Legend),
-            React.createElement(Bar,{dataKey:"target",fill:"#334155",radius:[4,4,0,0],name:"Target"}),
-            React.createElement(Bar,{dataKey:"actual",fill:"#3B82F6",radius:[4,4,0,0],name:"Actual"}),
-            React.createElement(ReferenceLine,{y:475000,stroke:"#F59E0B",strokeDasharray:"5 5"})
+/* ========== TAB 1: OVERVIEW ========== */
+function OverviewTab(){
+  return h('div',null,
+    h('div',{style:S.kpiRow},
+      h(KpiCard,{label:'YTD Revenue',value:fmt(ytdRevenue),trend:pct(ytdCompletion)+' of target',trendUp:ytdCompletion>=100,sub:fmtFull(ytdTarget)+' target'}),
+      h(KpiCard,{label:'Annual Completion',value:pct(annualCompletion),sub:monthsElapsed+'/12 months elapsed',trend:fmt(ANNUAL_TARGET)+' target'}),
+      h(KpiCard,{label:'Projected Annual',value:fmt(projectedAnnual),sub:scenarioLabel,trend:'Run-rate: '+fmt(avgMonthly)+'/mo',trendUp:projectedAnnual>=ANNUAL_TARGET,alert:projectedAnnual<3232000?'red':projectedAnnual<5700000?'amber':null}),
+      h(KpiCard,{label:'Cash Position',value:fmtFull(latestCash),sub:'End of '+MONTHLY_DATA[MONTHLY_DATA.length-1].month+' 2026',alert:latestCash<50000?'red':latestCash<150000?'amber':null}),
+      h(KpiCard,{label:'Total Debt',value:fmt(DEBT_TOTAL),sub:'Opening: '+fmt(DEBT_OPENING.total),trend:debtPaid>0?fmt(debtPaid)+' paid':fmt(Math.abs(debtPaid))+' increased',trendUp:debtPaid>0}),
+      h(KpiCard,{label:'Gross Profit %',value:pct(ytdGPPct),sub:'Target: 51.9%',trend:ytdGPPct>=51.9?'Above target':'Below target - watch DE',trendUp:ytdGPPct>=51.9,alert:ytdGPPct<50?'red':null})
+    ),
+    /* Charts Row */
+    h('div',{style:S.grid2},
+      h('div',{style:S.section},
+        h('div',{style:S.sectionTitle},'Monthly Revenue vs Target'),
+        h('div',{style:S.chartWrap},
+          h(ResponsiveContainer,{width:'100%',height:'100%'},
+            h(ComposedChart,{data:monthlyChartData,margin:{top:20,right:20,bottom:5,left:10}},
+              h(CartesianGrid,{strokeDasharray:'3 3',stroke:'#334155'}),
+              h(XAxis,{dataKey:'month',stroke:'#64748B',fontSize:12}),
+              h(YAxis,{stroke:'#64748B',fontSize:11,tickFormatter:function(v){return '$'+Math.round(v/1000)+'K';}}),
+              h(Tooltip,{formatter:function(v){return fmtFull(v);},contentStyle:{background:'#1E293B',border:'1px solid #475569',borderRadius:8,color:'#E2E8F0'}}),
+              h(Bar,{dataKey:'target',fill:'#334155',radius:[4,4,0,0],name:'Target'}),
+              h(Bar,{dataKey:'actual',fill:'#3B82F6',radius:[4,4,0,0],name:'Actual'}),
+              h(ReferenceLine,{y:avgMonthly,stroke:'#F59E0B',strokeDasharray:'5 5',label:{value:'Avg '+fmt(avgMonthly),fill:'#F59E0B',fontSize:11,position:'right'}})
+            )
           )
         )
       ),
-      React.createElement('div',{style:{background:"#1E293B",borderRadius:12,padding:20,border:"1px solid #334155"}},
-        React.createElement('div',{style:{fontSize:15,fontWeight:600,color:"#F8FAFC",marginBottom:14}},"Cumulative Revenue Path"),
-        React.createElement(ResponsiveContainer,{width:"100%",height:300},
-          React.createElement(AreaChart,{data:m.cumulativeData},
-            React.createElement(CartesianGrid,{strokeDasharray:"3 3",stroke:"#334155"}),
-            React.createElement(XAxis,{dataKey:"month",stroke:"#94A3B8",fontSize:12}),
-            React.createElement(YAxis,{stroke:"#94A3B8",fontSize:11,tickFormatter:fmt}),
-            React.createElement(Tooltip,{content:React.createElement(TT)}),
-            React.createElement(Legend),
-            React.createElement(Area,{type:"monotone",dataKey:"cumTarget",fill:"#334155",stroke:"#64748B",name:"Target Path",fillOpacity:0.3}),
-            React.createElement(Area,{type:"monotone",dataKey:"cumActual",fill:"#3B82F6",stroke:"#3B82F6",name:"Actual",fillOpacity:0.3,connectNulls:false}),
-            React.createElement(ReferenceLine,{y:3600000,stroke:"#EF4444",strokeDasharray:"5 5"})
+      h('div',{style:S.section},
+        h('div',{style:S.sectionTitle},'Cumulative Revenue Path'),
+        h('div',{style:S.chartWrap},
+          h(ResponsiveContainer,{width:'100%',height:'100%'},
+            h(AreaChart,{data:cumulativeData,margin:{top:20,right:20,bottom:5,left:10}},
+              h(CartesianGrid,{strokeDasharray:'3 3',stroke:'#334155'}),
+              h(XAxis,{dataKey:'month',stroke:'#64748B',fontSize:12}),
+              h(YAxis,{stroke:'#64748B',fontSize:11,tickFormatter:function(v){return '$'+(v/1000000).toFixed(1)+'M';}}),
+              h(Tooltip,{formatter:function(v){return v!=null?fmtFull(v):'-';},contentStyle:{background:'#1E293B',border:'1px solid #475569',borderRadius:8,color:'#E2E8F0'}}),
+              h(Area,{dataKey:'target',stroke:'#475569',fill:'rgba(71,85,105,0.2)',name:'Target Path',strokeDasharray:'5 5'}),
+              h(Area,{dataKey:'actual',stroke:'#3B82F6',fill:'rgba(59,130,246,0.15)',name:'Actual',connectNulls:false}),
+              h(ReferenceLine,{y:BREAKEVEN_EXCL,stroke:'#EF4444',strokeDasharray:'3 3',label:{value:'Break-even $3.6M',fill:'#EF4444',fontSize:10,position:'right'}})
+            )
           )
         )
       )
     ),
-    React.createElement('div',{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16}},
-      kpiCard("YTD Revenue",fmtFull(m.ytdRevenue),pct(m.ytdRevenue,m.ytdTarget)+" of "+fmtFull(m.ytdTarget)),
-      kpiCard("Run-Rate Projection",fmt(m.projected),"Based on "+m.monthsElapsed+" months"),
-      kpiCard("Feb Revenue",fmtFull(615984),"154.0% of $400K target")
-    )
-  );
-
-  // Products
-  const products = () => {
-    const barData = m.productYTD.filter(p=>p.rev>0).map(p=>({name:p.name,revenue:p.rev,directCost:p.de}));
-    return React.createElement('div',null,
-      React.createElement('div',{style:{fontSize:18,fontWeight:700,color:"#F8FAFC",marginBottom:16}},"Product Line Performance"),
-      React.createElement('div',{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}},
-        React.createElement('div',{style:{background:"#1E293B",borderRadius:12,padding:20,border:"1px solid #334155"}},
-          React.createElement('div',{style:{fontSize:15,fontWeight:600,color:"#F8FAFC",marginBottom:14}},"Revenue by Product (YTD)"),
-          React.createElement(ResponsiveContainer,{width:"100%",height:300},
-            React.createElement(PieChart,null,
-              React.createElement(Pie,{data:m.productYTD.filter(p=>p.rev>0),dataKey:"rev",nameKey:"name",cx:"50%",cy:"50%",innerRadius:60,outerRadius:110,
-                label:({name,percent})=>name+" "+(percent*100).toFixed(0)+"%"},
-                m.productYTD.filter(p=>p.rev>0).map((p,i)=>React.createElement(Cell,{key:i,fill:p.color}))
-              ),
-              React.createElement(Tooltip,{formatter:v=>fmtFull(v)})
+    /* Product Lines */
+    h('div',{style:Object.assign({},S.section,{marginTop:0})},
+      h('div',{style:S.sectionTitle},'Product Line Performance (YTD)'),
+      h('div',{style:{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:12,marginBottom:20}},
+        productYTD.map(function(p){
+          var gpOk = p.gpPct >= p.targetGP-10;
+          return h('div',{key:p.key,style:Object.assign({},S.productCard,{borderLeft:'3px solid '+p.color})},
+            h('div',{style:{fontSize:13,fontWeight:700,color:p.color,marginBottom:8}},p.name),
+            h('div',{style:{fontSize:22,fontWeight:800,color:'#F8FAFC'}},fmt(p.rev)),
+            h('div',{style:{fontSize:11,color:'#94A3B8',marginTop:4}},'GP: '+pct(p.gpPct)+' (target '+pct(p.targetGP)+')'),
+            h('div',{style:{fontSize:11,color:gpOk?'#10B981':'#F59E0B',fontWeight:600,marginTop:2}},gpOk?'On track':'Below target GP'),
+            h('div',{style:{fontSize:11,color:'#64748B',marginTop:4}},pct(p.progress)+' of '+fmt(p.targetRev)),
+            h('div',{style:S.progressBar},
+              h('div',{style:Object.assign({},S.progressFill,{width:Math.min(p.progress,100)+'%',background:p.color})})
             )
-          )
-        ),
-        React.createElement('div',{style:{background:"#1E293B",borderRadius:12,padding:20,border:"1px solid #334155"}},
-          React.createElement('div',{style:{fontSize:15,fontWeight:600,color:"#F8FAFC",marginBottom:14}},"Revenue vs Direct Cost"),
-          React.createElement(ResponsiveContainer,{width:"100%",height:300},
-            React.createElement(BarChart,{data:barData,layout:"vertical"},
-              React.createElement(CartesianGrid,{strokeDasharray:"3 3",stroke:"#334155"}),
-              React.createElement(XAxis,{type:"number",stroke:"#94A3B8",fontSize:11,tickFormatter:fmt}),
-              React.createElement(YAxis,{type:"category",dataKey:"name",stroke:"#94A3B8",fontSize:12,width:100}),
-              React.createElement(Tooltip,{content:React.createElement(TT)}),
-              React.createElement(Legend),
-              React.createElement(Bar,{dataKey:"revenue",fill:"#3B82F6",name:"Revenue",radius:[0,4,4,0]}),
-              React.createElement(Bar,{dataKey:"directCost",fill:"#EF4444",name:"Direct Cost",radius:[0,4,4,0]})
-            )
-          )
-        )
-      ),
-      React.createElement('div',{style:{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:16}},
-        m.productYTD.map(p=>{
-          const gpOk=p.gpPct>=p.targetGP-10;
-          return React.createElement('div',{key:p.key,style:{background:"#1E293B",borderRadius:12,padding:"18px 20px",border:"1px solid #334155",borderLeft:"3px solid "+p.color}},
-            React.createElement('div',{style:{fontSize:14,fontWeight:600,color:"#F8FAFC",marginBottom:8}},p.name),
-            React.createElement('div',{style:{fontSize:12,color:"#94A3B8",marginBottom:2}},"Revenue: ",React.createElement('span',{style:{color:"#F8FAFC",fontFamily:"monospace"}},fmtFull(p.rev))),
-            React.createElement('div',{style:{fontSize:12,color:"#94A3B8",marginBottom:2}},"GP%: ",React.createElement('span',{style:{color:gpOk?"#22C55E":"#F59E0B",fontWeight:600}},p.gpPct.toFixed(1)+"%")," (target "+p.targetGP+"%)"),
-            React.createElement('div',{style:{fontSize:12,color:"#94A3B8",marginBottom:2}},"Annual Target: "+fmt(p.targetRev)),
-            React.createElement('div',{style:{height:6,borderRadius:3,background:"#334155",overflow:"hidden",marginTop:8}},
-              React.createElement('div',{style:{height:"100%",width:Math.min(p.progress,100)+"%",background:p.color,borderRadius:3}})
-            ),
-            React.createElement('div',{style:{fontSize:11,color:"#64748B",marginTop:4}},p.progress.toFixed(0)+"% of pro-rata target")
           );
         })
-      )
-    );
-  };
-
-  // Cash & Debt
-  const cashdebt = () => {
-    const dtm=771177/12;
-    const cdd=MONTHS_ALL.slice(0,6).map((month,i)=>{
-      const a=m.completed.find(d=>d.month===month);
-      return{month,cash:a?a.cash:null,debt:a?a.debtTotal:null,debtTarget:DEBT_OPENING_TOTAL-dtm*(i+1)};
-    });
-    return React.createElement('div',null,
-      React.createElement('div',{style:{fontSize:18,fontWeight:700,color:"#F8FAFC",marginBottom:16}},"Cash & Debt Management"),
-      React.createElement('div',{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:16,marginBottom:16}},
-        kpiCard("Cash Balance",fmtFull(m.latestCash),null,!cashOk,cashOk?"#22C55E":"#EF4444"),
-        kpiCard("Total Debt",fmt(m.latestDebt)),
-        kpiCard("Debt Change YTD",(m.debtPaid>0?"-":"+")+fmt(Math.abs(m.debtPaid)),null,false,m.debtPaid>0?"#22C55E":"#EF4444"),
-        kpiCard("YTD EBIDA",fmtFull(m.ytdEBIDA),null,false,m.ytdEBIDA>=0?"#22C55E":"#EF4444")
       ),
-      React.createElement('div',{style:{display:"grid",gridTemplateColumns:"2fr 1fr",gap:16,marginBottom:16}},
-        React.createElement('div',{style:{background:"#1E293B",borderRadius:12,padding:20,border:"1px solid #334155"}},
-          React.createElement('div',{style:{fontSize:15,fontWeight:600,color:"#F8FAFC",marginBottom:14}},"Cash & Debt Trend"),
-          React.createElement(ResponsiveContainer,{width:"100%",height:300},
-            React.createElement(ComposedChart,{data:cdd},
-              React.createElement(CartesianGrid,{strokeDasharray:"3 3",stroke:"#334155"}),
-              React.createElement(XAxis,{dataKey:"month",stroke:"#94A3B8",fontSize:12}),
-              React.createElement(YAxis,{yAxisId:"left",stroke:"#22C55E",fontSize:11,tickFormatter:fmt}),
-              React.createElement(YAxis,{yAxisId:"right",orientation:"right",stroke:"#EF4444",fontSize:11,tickFormatter:fmt}),
-              React.createElement(Tooltip,{content:React.createElement(TT)}),
-              React.createElement(Legend),
-              React.createElement(Bar,{yAxisId:"left",dataKey:"cash",fill:"#22C55E",name:"Cash",radius:[4,4,0,0],opacity:0.8}),
-              React.createElement(Line,{yAxisId:"right",type:"monotone",dataKey:"debt",stroke:"#EF4444",strokeWidth:2,name:"Debt",connectNulls:false}),
-              React.createElement(Line,{yAxisId:"right",type:"monotone",dataKey:"debtTarget",stroke:"#F59E0B",strokeDasharray:"5 5",strokeWidth:1,name:"Debt Target"})
-            )
-          )
-        ),
-        React.createElement('div',{style:{background:"#1E293B",borderRadius:12,padding:20,border:"1px solid #334155"}},
-          React.createElement('div',{style:{fontSize:15,fontWeight:600,color:"#F8FAFC",marginBottom:14}},"Debt Breakdown"),
-          React.createElement(ResponsiveContainer,{width:"100%",height:300},
-            React.createElement(PieChart,null,
-              React.createElement(Pie,{data:m.debtBreakdown,dataKey:"value",nameKey:"name",cx:"50%",cy:"50%",outerRadius:100,
-                label:({name,percent})=>name+" "+(percent*100).toFixed(0)+"%"},
-                m.debtBreakdown.map((d,i)=>React.createElement(Cell,{key:i,fill:d.color}))
-              ),
-              React.createElement(Tooltip,{formatter:v=>fmtFull(v)})
-            )
+      /* Revenue Pie */
+      h('div',{style:{width:'100%',height:300}},
+        h(ResponsiveContainer,{width:'100%',height:'100%'},
+          h(PieChart,null,
+            h(Pie,{data:productYTD.filter(function(p){return p.rev>0;}),cx:'50%',cy:'50%',innerRadius:70,outerRadius:130,paddingAngle:2,dataKey:'rev',label:function(e){return e.name+' '+fmt(e.rev);}},
+              productYTD.filter(function(p){return p.rev>0;}).map(function(p,i){return h(Cell,{key:i,fill:p.color});})
+            ),
+            h(Tooltip,{formatter:function(v){return fmtFull(v);},contentStyle:{background:'#1E293B',border:'1px solid #475569',borderRadius:8,color:'#E2E8F0'}})
           )
         )
-      )
-    );
-  };
-
-  // Scenarios
-  const scenarios = () => {
-    const sd=SCENARIOS.map(s=>({name:s.name,Revenue:s.revenue,"Gross Profit":s.gp,EBIDA:s.ebida,"Net EBIDA":s.netEbida}));
-    const gMin=2500000,gMax=6500000;
-    const projPos=Math.max(0,Math.min(100,((m.projected-gMin)/(gMax-gMin))*100));
-    return React.createElement('div',null,
-      React.createElement('div',{style:{fontSize:18,fontWeight:700,color:"#F8FAFC",marginBottom:16}},"Scenario Analysis"),
-      React.createElement('div',{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16,marginBottom:16}},
-        kpiCard("Break-even (excl. debt)","$3.6M"),
-        kpiCard("Break-even (incl. debt)","$5.1M"),
-        kpiCard("Current Projection",fmt(m.projected),React.createElement('span',null,badge(m.scenario+" Trajectory",m.scenario==="On Target"?"#22C55E":m.scenario==="Floor"?"#EF4444":"#F59E0B")))
-      ),
-      React.createElement('div',{style:{background:"#1E293B",borderRadius:12,padding:20,border:"1px solid #334155",marginBottom:16}},
-        React.createElement('div',{style:{fontSize:15,fontWeight:600,color:"#F8FAFC",marginBottom:14}},"Projection Gauge"),
-        React.createElement('div',{style:{position:"relative",height:50,margin:"20px 0"}},
-          React.createElement('div',{style:{display:"flex",height:20,borderRadius:10,overflow:"hidden"}},
-            React.createElement('div',{style:{width:((3232000-gMin)/(gMax-gMin))*100+"%",background:"#7F1D1D"}}),
-            React.createElement('div',{style:{width:((4162000-3232000)/(gMax-gMin))*100+"%",background:"#EF4444"}}),
-            React.createElement('div',{style:{width:((5700000-4162000)/(gMax-gMin))*100+"%",background:"#F59E0B"}}),
-            React.createElement('div',{style:{flex:1,background:"#22C55E"}})
-          ),
-          React.createElement('div',{style:{position:"absolute",left:projPos+"%",top:-6,transform:"translateX(-50%)"}},
-            React.createElement('div',{style:{width:3,height:32,background:"#F8FAFC",borderRadius:2}}),
-            React.createElement('div',{style:{fontSize:11,color:"#F8FAFC",fontWeight:600,textAlign:"center",marginTop:2}},fmt(m.projected))
-          ),
-          React.createElement('div',{style:{display:"flex",justifyContent:"space-between",marginTop:4,fontSize:10,color:"#64748B"}},
-            React.createElement('span',null,"Below Floor"),
-            React.createElement('span',null,"Floor $3.2M"),
-            React.createElement('span',null,"Downside $4.2M"),
-            React.createElement('span',null,"Target $5.7M")
-          )
-        )
-      ),
-      React.createElement('div',{style:{background:"#1E293B",borderRadius:12,padding:20,border:"1px solid #334155"}},
-        React.createElement('div',{style:{fontSize:15,fontWeight:600,color:"#F8FAFC",marginBottom:14}},"Scenario Comparison"),
-        React.createElement(ResponsiveContainer,{width:"100%",height:300},
-          React.createElement(BarChart,{data:sd},
-            React.createElement(CartesianGrid,{strokeDasharray:"3 3",stroke:"#334155"}),
-            React.createElement(XAxis,{dataKey:"name",stroke:"#94A3B8",fontSize:12}),
-            React.createElement(YAxis,{stroke:"#94A3B8",fontSize:11,tickFormatter:fmt}),
-            React.createElement(Tooltip,{content:React.createElement(TT)}),
-            React.createElement(Legend),
-            React.createElement(Bar,{dataKey:"Revenue",fill:"#3B82F6",radius:[4,4,0,0]}),
-            React.createElement(Bar,{dataKey:"Gross Profit",fill:"#22C55E",radius:[4,4,0,0]}),
-            React.createElement(Bar,{dataKey:"EBIDA",fill:"#F59E0B",radius:[4,4,0,0]}),
-            React.createElement(Bar,{dataKey:"Net EBIDA",fill:"#8B5CF6",radius:[4,4,0,0]})
-          )
-        )
-      )
-    );
-  };
-
-  return React.createElement('div',{style:{background:"#0B1120",color:"#E2E8F0",minHeight:"100vh",fontFamily:"'Inter',sans-serif",padding:"20px 24px"}},
-    React.createElement('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24,flexWrap:"wrap",gap:12}},
-      React.createElement('div',{style:{fontSize:22,fontWeight:700,color:"#F8FAFC",display:"flex",alignItems:"center",gap:10}},
-        React.createElement('span',{style:{width:10,height:10,borderRadius:"50%",background:cashOk?"#22C55E":"#EF4444",display:"inline-block",boxShadow:cashOk?"0 0 8px #22C55E":"0 0 8px #EF4444"}}),
-        "Shafston 2026 Financial Dashboard",
-        badge(m.scenario+" Trajectory",m.scenario==="On Target"?"#22C55E":m.scenario==="Floor"?"#EF4444":"#F59E0B"),
-        React.createElement('span',{style:{fontSize:12,color:"#64748B",fontWeight:400,marginLeft:8}},"Data: 2 Mar 2026")
-      ),
-      React.createElement('div',{style:{display:"flex",gap:6}},
-        tabs.map(t=>React.createElement('button',{key:t.k,onClick:()=>setView(t.k),style:{padding:"8px 18px",borderRadius:8,border:"none",cursor:"pointer",fontSize:13,fontWeight:600,background:view===t.k?"#3B82F6":"#1E293B",color:view===t.k?"#fff":"#94A3B8"}},t.l))
       )
     ),
-    view==="overview"&&overview(),
-    view==="revenue"&&revenue(),
-    view==="products"&&products(),
-    view==="cashdebt"&&cashdebt(),
-    view==="scenarios"&&scenarios(),
-    React.createElement('div',{style:{textAlign:"center",color:"#475569",fontSize:11,marginTop:24,paddingBottom:12}},"Shafston International College | 2026 Financial Dashboard | Generated 2 Mar 2026 from Xero")
+    /* Monthly Summary Table */
+    h('div',{style:S.section},
+      h('div',{style:S.sectionTitle},'Monthly Summary'),
+      h(DataTable,{
+        headers:['Month','Target','Actual','Completion','Gross Profit','EBIDA','Cash'],
+        rows:MONTHLY_DATA.map(function(m){
+          return[m.month,fmtFull(m.target),fmtFull(m.revenue.total),pct(m.revenue.total/m.target*100),fmtFull(m.gp)+' ('+pct(m.gpPct)+')',fmtFull(m.ebida),fmtFull(m.cash)];
+        }).concat([['YTD',fmtFull(ytdTarget),fmtFull(ytdRevenue),pct(ytdCompletion),fmtFull(ytdGP)+' ('+pct(ytdGPPct)+')',fmtFull(ytdEBIDA),fmtFull(latestCash)]]),
+        totalRow:true
+      })
+    )
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+/* ========== TAB 2: OPERATIONAL EXPENSES ========== */
+function OpExTab(){
+  var ytdOtherOpEx = ytdRent+ytdSales+ytdOperating;
+  var hrBudget = COST_BUDGET.hr*monthsElapsed;
+  var otherBudget = (COST_BUDGET.rent+COST_BUDGET.sales+COST_BUDGET.opex)*monthsElapsed;
+  var opexRevPct = ytdOpEx/ytdRevenue*100;
+  return h('div',null,
+    h('div',{style:S.kpiRow},
+      h(KpiCard,{label:'YTD Total OpEx',value:fmt(ytdOpEx),sub:'Budget: '+fmt(MONTHLY_OPEX_BUDGET*monthsElapsed),trend:fmtFull(ytdOpEx-MONTHLY_OPEX_BUDGET*monthsElapsed)+' variance',trendUp:ytdOpEx<=MONTHLY_OPEX_BUDGET*monthsElapsed,alert:ytdOpEx>MONTHLY_OPEX_BUDGET*monthsElapsed*1.1?'red':ytdOpEx>MONTHLY_OPEX_BUDGET*monthsElapsed?'amber':null}),
+      h(KpiCard,{label:'HR Expense',value:fmt(ytdHR),sub:'Budget: '+fmt(hrBudget),trend:fmtFull(ytdHR-hrBudget)+' variance',trendUp:ytdHR<=hrBudget,alert:ytdHR>hrBudget*1.1?'red':ytdHR>hrBudget?'amber':null}),
+      h(KpiCard,{label:'Other OpEx (R+S+O)',value:fmt(ytdOtherOpEx),sub:'Budget: '+fmt(otherBudget),trend:fmtFull(ytdOtherOpEx-otherBudget)+' variance',trendUp:ytdOtherOpEx<=otherBudget}),
+      h(KpiCard,{label:'OpEx % of Revenue',value:pct(opexRevPct),sub:'Lower is better',alert:opexRevPct>60?'amber':null})
+    ),
+    /* Stacked Bar Chart */
+    h('div',{style:S.section},
+      h('div',{style:S.sectionTitle},'Monthly OpEx by Category'),
+      h('div',{style:S.chartWrap},
+        h(ResponsiveContainer,{width:'100%',height:'100%'},
+          h(BarChart,{data:opexChartData,margin:{top:20,right:20,bottom:5,left:10}},
+            h(CartesianGrid,{strokeDasharray:'3 3',stroke:'#334155'}),
+            h(XAxis,{dataKey:'month',stroke:'#64748B',fontSize:12}),
+            h(YAxis,{stroke:'#64748B',fontSize:11,tickFormatter:function(v){return '$'+Math.round(v/1000)+'K';}}),
+            h(Tooltip,{formatter:function(v){return fmtFull(v);},contentStyle:{background:'#1E293B',border:'1px solid #475569',borderRadius:8,color:'#E2E8F0'}}),
+            h(Legend,null),
+            h(Bar,{dataKey:'hr',stackId:'a',fill:'#3B82F6',name:'HR Expense'}),
+            h(Bar,{dataKey:'rent',stackId:'a',fill:'#10B981',name:'Rent & Outgoing'}),
+            h(Bar,{dataKey:'sales',stackId:'a',fill:'#F59E0B',name:'Sales Cost'}),
+            h(Bar,{dataKey:'operating',stackId:'a',fill:'#8B5CF6',name:'Operating Cost',radius:[4,4,0,0]})
+          )
+        )
+      )
+    ),
+    /* Tables */
+    h('div',{style:S.grid2},
+      h('div',{style:S.section},
+        h('div',{style:S.sectionTitle},'Category Budget Analysis'),
+        h(DataTable,{
+          headers:['Category','YTD Actual','Budget','Variance','Status'],
+          rows:[
+            ['HR Expense',fmtFull(ytdHR),fmtFull(hrBudget),fmtFull(ytdHR-hrBudget),ytdHR<=hrBudget?'Under':'Over'],
+            ['Rent & Outgoing',fmtFull(ytdRent),fmtFull(COST_BUDGET.rent*monthsElapsed),fmtFull(ytdRent-COST_BUDGET.rent*monthsElapsed),ytdRent<=COST_BUDGET.rent*monthsElapsed?'Under':'Over'],
+            ['Sales Cost',fmtFull(ytdSales),fmtFull(COST_BUDGET.sales*monthsElapsed),fmtFull(ytdSales-COST_BUDGET.sales*monthsElapsed),ytdSales<=COST_BUDGET.sales*monthsElapsed?'Under':'Over'],
+            ['Operating Cost',fmtFull(ytdOperating),fmtFull(COST_BUDGET.opex*monthsElapsed),fmtFull(ytdOperating-COST_BUDGET.opex*monthsElapsed),ytdOperating<=COST_BUDGET.opex*monthsElapsed?'Under':'Over'],
+            ['Total',fmtFull(ytdOpEx),fmtFull(MONTHLY_OPEX_BUDGET*monthsElapsed),fmtFull(ytdOpEx-MONTHLY_OPEX_BUDGET*monthsElapsed),'']
+          ],totalRow:true
+        })
+      ),
+      h('div',{style:S.section},
+        h('div',{style:S.sectionTitle},'Monthly OpEx Detail'),
+        h(DataTable,{
+          headers:['Month','HR','Rent','Sales','Operating','Total'],
+          rows:MONTHLY_DATA.map(function(m){
+            return[m.month,fmtFull(m.opex.hr),fmtFull(m.opex.rent),fmtFull(m.opex.sales),fmtFull(m.opex.operating),fmtFull(m.opex.total)];
+          }).concat([['YTD',fmtFull(ytdHR),fmtFull(ytdRent),fmtFull(ytdSales),fmtFull(ytdOperating),fmtFull(ytdOpEx)]]),
+          totalRow:true
+        })
+      )
+    ),
+    /* DE by Product */
+    h('div',{style:S.section},
+      h('div',{style:S.sectionTitle},'Direct Expenses by Product Line (YTD)'),
+      h(DataTable,{
+        headers:['Product Line','Revenue','Direct Expense','Gross Profit','GP%','Target GP%','Status'],
+        rows:productYTD.map(function(p){
+          return[p.name,fmtFull(p.rev),fmtFull(p.de),fmtFull(p.gp),pct(p.gpPct),pct(p.targetGP),p.gpPct>=p.targetGP-10?'OK':'Watch'];
+        }).concat([['Total',fmtFull(ytdRevenue),fmtFull(ytdDE),fmtFull(ytdGP),pct(ytdGPPct),'51.9%',ytdGPPct>=51.9?'OK':'Below']]),
+        totalRow:true
+      })
+    )
+  );
+}
+
+/* ========== TAB 3: DEBT ========== */
+function DebtTab(){
+  var debtRevRatio = DEBT_TOTAL/ytdRevenue;
+  return h('div',null,
+    h('div',{style:S.kpiRow},
+      h(KpiCard,{label:'Total Current Debt',value:fmt(DEBT_TOTAL),sub:'Opening: '+fmt(DEBT_OPENING.total),alert:DEBT_TOTAL>DEBT_OPENING.total?'red':null}),
+      h(KpiCard,{label:'Debt Paid YTD',value:fmt(Math.abs(debtPaid)),trend:debtPaid>0?'Reducing':'Increased by '+fmt(Math.abs(debtPaid)),trendUp:debtPaid>0,alert:debtPaid<0?'red':null}),
+      h(KpiCard,{label:'Monthly Debt Target',value:fmtFull(MONTHLY_DEBT_TARGET),sub:'Annual: '+fmt(771177)}),
+      h(KpiCard,{label:'Debt-to-Revenue',value:debtRevRatio.toFixed(2)+'x',sub:debtRevRatio>2?'High leverage':'Manageable',alert:debtRevRatio>3?'red':debtRevRatio>2?'amber':null})
+    ),
+    h('div',{style:S.grid2},
+      h('div',{style:S.section},
+        h('div',{style:S.sectionTitle},'Debt Breakdown by Category'),
+        h('div',{style:{width:'100%',height:320}},
+          h(ResponsiveContainer,{width:'100%',height:'100%'},
+            h(PieChart,null,
+              h(Pie,{data:debtPieData,cx:'50%',cy:'50%',innerRadius:60,outerRadius:120,paddingAngle:2,dataKey:'value',label:function(e){return e.name+' '+fmt(e.value);}},
+                debtPieData.map(function(d,i){return h(Cell,{key:i,fill:d.color});})
+              ),
+              h(Tooltip,{formatter:function(v){return fmtFull(v);},contentStyle:{background:'#1E293B',border:'1px solid #475569',borderRadius:8,color:'#E2E8F0'}})
+            )
+          )
+        )
+      ),
+      h('div',{style:S.section},
+        h('div',{style:S.sectionTitle},'Cash vs Debt'),
+        h('div',{style:{width:'100%',height:320}},
+          h(ResponsiveContainer,{width:'100%',height:'100%'},
+            h(ComposedChart,{data:MONTHLY_DATA.map(function(m){return{month:m.month,cash:m.cash,debt:DEBT_TOTAL};}),margin:{top:20,right:60,bottom:5,left:10}},
+              h(CartesianGrid,{strokeDasharray:'3 3',stroke:'#334155'}),
+              h(XAxis,{dataKey:'month',stroke:'#64748B',fontSize:12}),
+              h(YAxis,{yAxisId:'left',stroke:'#64748B',fontSize:11,tickFormatter:function(v){return '$'+Math.round(v/1000)+'K';}}),
+              h(YAxis,{yAxisId:'right',orientation:'right',stroke:'#64748B',fontSize:11,tickFormatter:function(v){return '$'+(v/1000000).toFixed(1)+'M';}}),
+              h(Tooltip,{formatter:function(v){return fmtFull(v);},contentStyle:{background:'#1E293B',border:'1px solid #475569',borderRadius:8,color:'#E2E8F0'}}),
+              h(Bar,{yAxisId:'left',dataKey:'cash',fill:'#3B82F6',radius:[4,4,0,0],name:'Cash'}),
+              h(Line,{yAxisId:'right',dataKey:'debt',stroke:'#EF4444',strokeWidth:2,dot:true,name:'Total Debt'})
+            )
+          )
+        )
+      )
+    ),
+    h('div',{style:S.section},
+      h('div',{style:S.sectionTitle},'Debt Category Detail'),
+      h(DataTable,{
+        headers:['Category','Opening','Current','Change','Notes'],
+        rows:[
+          ['ATO',fmtFull(DEBT_OPENING.ato),fmtFull(DEBT_CURRENT.ato),fmtFull(DEBT_CURRENT.ato-DEBT_OPENING.ato),'Payment plan active'],
+          ['Refund',fmtFull(DEBT_OPENING.refund),fmtFull(DEBT_CURRENT.refund),fmtFull(DEBT_CURRENT.refund-DEBT_OPENING.refund),'Process as arise'],
+          ['Commission',fmtFull(DEBT_OPENING.commission),fmtFull(DEBT_CURRENT.commission),fmtFull(DEBT_CURRENT.commission-DEBT_OPENING.commission),'Agent payments'],
+          ['ST Expenses',fmtFull(DEBT_OPENING.stExpenses),fmtFull(DEBT_CURRENT.stExpenses),fmtFull(DEBT_CURRENT.stExpenses),'Seasonal'],
+          ['OPEX',fmtFull(DEBT_OPENING.opex),fmtFull(DEBT_CURRENT.opex),fmtFull(DEBT_CURRENT.opex-DEBT_OPENING.opex),'Negotiate terms'],
+          ['Payroll Tax',fmtFull(DEBT_OPENING.payrollTax),fmtFull(DEBT_CURRENT.payrollTax),fmtFull(DEBT_CURRENT.payrollTax-DEBT_OPENING.payrollTax),'Cleared'],
+          ['Total',fmtFull(DEBT_OPENING.total),fmtFull(DEBT_TOTAL),fmtFull(DEBT_TOTAL-DEBT_OPENING.total),'']
+        ],totalRow:true
+      })
+    )
+  );
+}
+
+/* ========== TAB 4: CASH PREDICTION ========== */
+function CashTab(){
+  var runway = ytdEBIDA>0?'Positive':'~'+Math.round(latestCash/(ytdOpEx/monthsElapsed))+' months';
+  var nextCash = cashForecast.length>0?cashForecast[0].closing:null;
+  return h('div',null,
+    h('div',{style:S.kpiRow},
+      h(KpiCard,{label:'Current Cash',value:fmtFull(latestCash),sub:'End of '+MONTHLY_DATA[MONTHLY_DATA.length-1].month,alert:latestCash<50000?'red':latestCash<150000?'amber':null}),
+      h(KpiCard,{label:'Predicted Mar Cash',value:nextCash!=null?fmtFull(nextCash):'-',sub:'Source: '+cashForecast[0].source,alert:nextCash!=null&&nextCash<0?'red':nextCash!=null&&nextCash<50000?'amber':null}),
+      h(KpiCard,{label:'Cash Runway',value:ytdEBIDA>0?'Generating Cash':runway,sub:ytdEBIDA>0?'YTD EBIDA: '+fmtFull(ytdEBIDA):'At current expense rate',trendUp:ytdEBIDA>0})
+    ),
+    /* Cash Trend */
+    h('div',{style:S.section},
+      h('div',{style:S.sectionTitle},'Cash Position: Actual + Projected'),
+      h('div',{style:{width:'100%',height:350}},
+        h(ResponsiveContainer,{width:'100%',height:'100%'},
+          h(ComposedChart,{data:cashTrendData,margin:{top:20,right:30,bottom:5,left:10}},
+            h(CartesianGrid,{strokeDasharray:'3 3',stroke:'#334155'}),
+            h(XAxis,{dataKey:'month',stroke:'#64748B',fontSize:12}),
+            h(YAxis,{stroke:'#64748B',fontSize:11,tickFormatter:function(v){return '$'+Math.round(v/1000)+'K';}}),
+            h(Tooltip,{formatter:function(v){return v!=null?fmtFull(v):'-';},contentStyle:{background:'#1E293B',border:'1px solid #475569',borderRadius:8,color:'#E2E8F0'}}),
+            h(Bar,{dataKey:'cash',fill:'#3B82F6',radius:[4,4,0,0],name:'Actual Cash'}),
+            h(Bar,{dataKey:'projected',fill:'rgba(59,130,246,0.35)',radius:[4,4,0,0],name:'Projected Cash'}),
+            h(ReferenceLine,{y:50000,stroke:'#EF4444',strokeDasharray:'3 3',label:{value:'$50K Alert',fill:'#EF4444',fontSize:10,position:'right'}}),
+            h(ReferenceLine,{y:150000,stroke:'#F59E0B',strokeDasharray:'3 3',label:{value:'$150K Buffer',fill:'#F59E0B',fontSize:10,position:'right'}})
+          )
+        )
+      )
+    ),
+    /* 3-Month Forecast */
+    h('div',{style:S.section},
+      h('div',{style:S.sectionTitle},'3-Month Rolling Forecast'),
+      h(DataTable,{
+        headers:['','Mar','Apr','May'],
+        rows:[
+          ['Data Source',cashForecast[0].source,cashForecast[1].source,cashForecast[2].source],
+          ['Opening Cash',fmtFull(cashForecast[0].opening),fmtFull(cashForecast[1].opening),fmtFull(cashForecast[2].opening)],
+          ['+ Revenue',fmtFull(cashForecast[0].revenue),fmtFull(cashForecast[1].revenue),fmtFull(cashForecast[2].revenue)],
+          ['- Direct Expenses',fmtFull(cashForecast[0].de),fmtFull(cashForecast[1].de),fmtFull(cashForecast[2].de)],
+          ['- HR Expense',fmtFull(cashForecast[0].hr),fmtFull(cashForecast[1].hr),fmtFull(cashForecast[2].hr)],
+          ['- Other Expenses',fmtFull(cashForecast[0].other),fmtFull(cashForecast[1].other),fmtFull(cashForecast[2].other)],
+          ['- Debt Payments',fmtFull(cashForecast[0].debt),fmtFull(cashForecast[1].debt),fmtFull(cashForecast[2].debt)],
+          ['Closing Cash',fmtFull(cashForecast[0].closing),fmtFull(cashForecast[1].closing),fmtFull(cashForecast[2].closing)]
+        ],totalRow:true
+      })
+    ),
+    h('div',{style:Object.assign({},S.section,{padding:16})},
+      h('div',{style:{fontSize:12,color:'#94A3B8'}},
+        h('span',{style:{fontWeight:700,color:'#60A5FA'}},'Prediction Sources: '),
+        'Mar = 1-Month Accrued (AR invoices $97.7K) | Apr = AI 2-Month (AR+ST Quotation $197.8K) | May = Target ($300K). DE at ~45% of revenue. HR $97.3K/mo. Other $70.4K/mo. Debt $64.3K/mo.'
+      )
+    )
+  );
+}
+
+/* ========== TAB 5: SCENARIOS ========== */
+function ScenariosTab(){
+  var scenarioChartData = SCENARIOS.map(function(s){return{name:s.name,revenue:s.revenue,gp:s.gp,ebida:s.ebida,netEbida:s.netEbida};});
+  var gaugeWidth = Math.min(Math.max((projectedAnnual-2000000)/(6500000-2000000)*100,0),100);
+  return h('div',null,
+    h('div',{style:S.kpiRow},
+      h(KpiCard,{label:'Current Trajectory',value:scenarioLabel,sub:'Projected: '+fmt(projectedAnnual),alert:scenarioLabel==='FLOOR'||scenarioLabel==='BELOW FLOOR'?'red':scenarioLabel==='DOWNSIDE'?'amber':null}),
+      h(KpiCard,{label:'Break-even (excl. debt)',value:fmt(BREAKEVEN_EXCL),sub:'Revenue needed to cover ops'}),
+      h(KpiCard,{label:'Break-even (incl. debt)',value:fmt(BREAKEVEN_INCL),sub:'Revenue to cover ops + debt'}),
+      h(KpiCard,{label:'Gap to Target',value:fmt(Math.abs(ANNUAL_TARGET-projectedAnnual)),sub:projectedAnnual>=ANNUAL_TARGET?'Ahead of target':'Shortfall',trendUp:projectedAnnual>=ANNUAL_TARGET})
+    ),
+    /* Gauge */
+    h('div',{style:S.section},
+      h('div',{style:S.sectionTitle},'Revenue Projection Position'),
+      h('div',{style:{position:'relative',height:70,background:'#0F172A',borderRadius:8,overflow:'visible',margin:'24px 0 8px'}},
+        h('div',{style:{position:'absolute',left:0,top:0,bottom:0,width:'27%',background:'rgba(239,68,68,0.15)',borderRight:'2px solid #EF4444'}}),
+        h('div',{style:{position:'absolute',left:'27%',top:0,bottom:0,width:'21%',background:'rgba(245,158,11,0.1)',borderRight:'2px solid #F59E0B'}}),
+        h('div',{style:{position:'absolute',left:'48%',top:0,bottom:0,width:'34%',background:'rgba(16,185,129,0.08)',borderRight:'2px solid #10B981'}}),
+        h('div',{style:{position:'absolute',left:'82%',top:0,bottom:0,right:0,background:'rgba(16,185,129,0.15)'}}),
+        h('div',{style:{position:'absolute',left:gaugeWidth+'%',top:-6,bottom:-6,width:4,background:'#F8FAFC',borderRadius:2,zIndex:10,transform:'translateX(-50%)'}}),
+        h('div',{style:{position:'absolute',left:gaugeWidth+'%',top:-22,transform:'translateX(-50%)',background:scenarioColor,color:'#FFF',padding:'3px 10px',borderRadius:6,fontSize:11,fontWeight:700,whiteSpace:'nowrap'}},fmt(projectedAnnual)),
+        h('div',{style:{position:'absolute',bottom:8,left:'5%',fontSize:10,color:'#EF4444',fontWeight:600}},'Floor $3.2M'),
+        h('div',{style:{position:'absolute',bottom:8,left:'30%',fontSize:10,color:'#F59E0B',fontWeight:600}},'Downside $4.2M'),
+        h('div',{style:{position:'absolute',bottom:8,left:'52%',fontSize:10,color:'#10B981',fontWeight:600}},'Target $5.7M')
+      )
+    ),
+    /* Chart */
+    h('div',{style:S.section},
+      h('div',{style:S.sectionTitle},'Scenario Comparison'),
+      h('div',{style:{width:'100%',height:350}},
+        h(ResponsiveContainer,{width:'100%',height:'100%'},
+          h(BarChart,{data:scenarioChartData,margin:{top:20,right:20,bottom:5,left:10}},
+            h(CartesianGrid,{strokeDasharray:'3 3',stroke:'#334155'}),
+            h(XAxis,{dataKey:'name',stroke:'#64748B',fontSize:12}),
+            h(YAxis,{stroke:'#64748B',fontSize:11,tickFormatter:function(v){return '$'+(v/1000000).toFixed(1)+'M';}}),
+            h(Tooltip,{formatter:function(v){return fmtFull(v);},contentStyle:{background:'#1E293B',border:'1px solid #475569',borderRadius:8,color:'#E2E8F0'}}),
+            h(Legend,null),
+            h(Bar,{dataKey:'revenue',fill:'#3B82F6',name:'Revenue',radius:[4,4,0,0]}),
+            h(Bar,{dataKey:'gp',fill:'#10B981',name:'Gross Profit',radius:[4,4,0,0]}),
+            h(Bar,{dataKey:'ebida',fill:'#F59E0B',name:'EBIDA',radius:[4,4,0,0]}),
+            h(Bar,{dataKey:'netEbida',fill:'#8B5CF6',name:'Net EBIDA',radius:[4,4,0,0]})
+          )
+        )
+      )
+    ),
+    /* Table */
+    h('div',{style:S.section},
+      h('div',{style:S.sectionTitle},'Scenario Detail Comparison'),
+      h(DataTable,{
+        headers:['Metric','Floor','Downside','Target','Current Projection'],
+        rows:[
+          ['Revenue',fmt(3232000),fmt(4162000),fmt(5700000),fmt(projectedAnnual)+' '+scenarioLabel],
+          ['Gross Profit',fmt(1628000),fmt(2101000),fmt(2959000),fmt(ytdGP*(12/monthsElapsed))],
+          ['GP%','50.4%','50.5%','51.9%',pct(ytdGPPct)],
+          ['EBIDA',fmt(-2000),fmt(291000),fmt(947000),fmt(ytdEBIDA*(12/monthsElapsed))],
+          ['Net EBIDA (after debt)',fmt(-773000),fmt(-480000),fmt(175000),fmt((ytdEBIDA*(12/monthsElapsed))-771177)]
+        ]
+      })
+    )
+  );
+}
+
+/* ========== TAB 6: YoY COMPARISON ========== */
+function YoYTab(){
+  var ann = function(v){return Math.round(v*(12/monthsElapsed));};
+  var fy25MonthlyRev = FY2025.revenue.total/12;
+  var fy26AnnRev = ann(ytdRevenue);
+  var revChange = (fy26AnnRev-FY2025.revenue.total)/FY2025.revenue.total*100;
+  var yoyData = MONTHS.slice(0,monthsElapsed).map(function(m,i){
+    return{month:m,fy2025:Math.round(fy25MonthlyRev),fy2026:MONTHLY_DATA[i]?MONTHLY_DATA[i].revenue.total:0};
+  });
+  return h('div',null,
+    h('div',{style:S.kpiRow},
+      h(KpiCard,{label:'FY2025 Revenue',value:fmt(FY2025.revenue.total),sub:'FY2026 Annualized: '+fmt(fy26AnnRev),trend:fmtPct(revChange)+' YoY',trendUp:revChange<0}),
+      h(KpiCard,{label:'FY2025 GP%',value:pct(FY2025.gpPct),sub:'FY2026 YTD: '+pct(ytdGPPct),trend:fmtPct(ytdGPPct-FY2025.gpPct)+' pts',trendUp:ytdGPPct>=FY2025.gpPct}),
+      h(KpiCard,{label:'FY2025 OpEx',value:fmt(FY2025.operationalExpenses.totalOpEx),sub:'FY2026 Ann: '+fmt(ann(ytdOpEx)),trend:fmtPct((ann(ytdOpEx)-FY2025.operationalExpenses.totalOpEx)/FY2025.operationalExpenses.totalOpEx*100),trendUp:ann(ytdOpEx)<=FY2025.operationalExpenses.totalOpEx}),
+      h(KpiCard,{label:'FY2025 Net Profit',value:fmt(FY2025.netProfit),sub:'FY2026 Ann EBIDA: '+fmt(ann(ytdEBIDA))})
+    ),
+    /* Revenue Bar Comparison */
+    h('div',{style:S.section},
+      h('div',{style:S.sectionTitle},'Monthly Revenue: FY2025 Avg vs FY2026 Actual'),
+      h('div',{style:{width:'100%',height:350}},
+        h(ResponsiveContainer,{width:'100%',height:'100%'},
+          h(BarChart,{data:yoyData,margin:{top:20,right:20,bottom:5,left:10}},
+            h(CartesianGrid,{strokeDasharray:'3 3',stroke:'#334155'}),
+            h(XAxis,{dataKey:'month',stroke:'#64748B',fontSize:12}),
+            h(YAxis,{stroke:'#64748B',fontSize:11,tickFormatter:function(v){return '$'+Math.round(v/1000)+'K';}}),
+            h(Tooltip,{formatter:function(v){return fmtFull(v);},contentStyle:{background:'#1E293B',border:'1px solid #475569',borderRadius:8,color:'#E2E8F0'}}),
+            h(Legend,null),
+            h(Bar,{dataKey:'fy2025',fill:'#475569',name:'FY2025 Monthly Avg',radius:[4,4,0,0]}),
+            h(Bar,{dataKey:'fy2026',fill:'#3B82F6',name:'FY2026 Actual',radius:[4,4,0,0]})
+          )
+        )
+      )
+    ),
+    /* Expense Comparison */
+    h('div',{style:S.section},
+      h('div',{style:S.sectionTitle},'Expense Category Comparison'),
+      h(DataTable,{
+        headers:['Category','FY2025 Annual','FY2026 YTD','FY2026 Annualized','YoY Change'],
+        rows:[
+          ['Direct Expenses',fmtFull(FY2025.directExpenses.total),fmtFull(ytdDE),fmtFull(ann(ytdDE)),fmtPct((ann(ytdDE)-FY2025.directExpenses.total)/FY2025.directExpenses.total*100)],
+          ['HR Expense',fmtFull(FY2025.operationalExpenses.hr),fmtFull(ytdHR),fmtFull(ann(ytdHR)),fmtPct((ann(ytdHR)-FY2025.operationalExpenses.hr)/FY2025.operationalExpenses.hr*100)],
+          ['Rent & Outgoing',fmtFull(FY2025.operationalExpenses.rentOutgoing),fmtFull(ytdRent),fmtFull(ann(ytdRent)),fmtPct((ann(ytdRent)-FY2025.operationalExpenses.rentOutgoing)/FY2025.operationalExpenses.rentOutgoing*100)],
+          ['Sales Cost',fmtFull(FY2025.operationalExpenses.salesCost),fmtFull(ytdSales),fmtFull(ann(ytdSales)),fmtPct((ann(ytdSales)-FY2025.operationalExpenses.salesCost)/FY2025.operationalExpenses.salesCost*100)],
+          ['Operating Cost',fmtFull(FY2025.operationalExpenses.operatingCost),fmtFull(ytdOperating),fmtFull(ann(ytdOperating)),fmtPct((ann(ytdOperating)-FY2025.operationalExpenses.operatingCost)/FY2025.operationalExpenses.operatingCost*100)],
+          ['Total OpEx',fmtFull(FY2025.operationalExpenses.totalOpEx),fmtFull(ytdOpEx),fmtFull(ann(ytdOpEx)),fmtPct((ann(ytdOpEx)-FY2025.operationalExpenses.totalOpEx)/FY2025.operationalExpenses.totalOpEx*100)]
+        ]
+      })
+    ),
+    /* P&L Summary */
+    h('div',{style:S.section},
+      h('div',{style:S.sectionTitle},'P&L Summary: FY2025 vs FY2026'),
+      h(DataTable,{
+        headers:['Line Item','FY2025','FY2026 YTD','FY2026 Annualized','YoY Change'],
+        rows:[
+          ['Total Revenue',fmtFull(FY2025.revenue.total),fmtFull(ytdRevenue),fmtFull(fy26AnnRev),fmtPct(revChange)],
+          ['Direct Expenses',fmtFull(FY2025.directExpenses.total),fmtFull(ytdDE),fmtFull(ann(ytdDE)),fmtPct((ann(ytdDE)-FY2025.directExpenses.total)/FY2025.directExpenses.total*100)],
+          ['Gross Profit',fmtFull(FY2025.grossProfit),fmtFull(ytdGP),fmtFull(ann(ytdGP)),fmtPct((ann(ytdGP)-FY2025.grossProfit)/FY2025.grossProfit*100)],
+          ['GP%',pct(FY2025.gpPct),pct(ytdGPPct),pct(ytdGPPct),fmtPct(ytdGPPct-FY2025.gpPct)+' pts'],
+          ['Total OpEx',fmtFull(FY2025.operationalExpenses.totalOpEx),fmtFull(ytdOpEx),fmtFull(ann(ytdOpEx)),fmtPct((ann(ytdOpEx)-FY2025.operationalExpenses.totalOpEx)/FY2025.operationalExpenses.totalOpEx*100)],
+          ['Net Profit / EBIDA',fmtFull(FY2025.netProfit),fmtFull(ytdEBIDA),fmtFull(ann(ytdEBIDA)),fmtPct((ann(ytdEBIDA)-FY2025.netProfit)/Math.abs(FY2025.netProfit)*100)]
+        ]
+      })
+    )
+  );
+}
+
+/* ========== MAIN APP ========== */
+var TABS = ['Overview','Operational Expenses','Debt','Cash Prediction','Scenarios','YoY Comparison'];
+
+function App(){
+  var state = useState(0);
+  var activeTab = state[0];
+  var setTab = state[1];
+
+  var tabContent;
+  switch(activeTab){
+    case 0:tabContent=h(OverviewTab);break;
+    case 1:tabContent=h(OpExTab);break;
+    case 2:tabContent=h(DebtTab);break;
+    case 3:tabContent=h(CashTab);break;
+    case 4:tabContent=h(ScenariosTab);break;
+    case 5:tabContent=h(YoYTab);break;
+    default:tabContent=h(OverviewTab);
+  }
+
+  return h('div',{style:{minHeight:'100vh',background:'#0B1120'}},
+    /* Header */
+    h('div',{style:S.header},
+      h('div',{style:{display:'flex',alignItems:'center',gap:16}},
+        h('div',{style:{width:10,height:10,borderRadius:'50%',background:latestCash>50000?'#10B981':'#EF4444',boxShadow:'0 0 8px '+(latestCash>50000?'#10B981':'#EF4444')}}),
+        h('div',{style:S.headerTitle},'Shafston 2026 Financial Dashboard')
+      ),
+      h('div',{style:{display:'flex',alignItems:'center',gap:12}},
+        h('div',{style:Object.assign({},S.badge,{background:scenarioColor+'22',color:scenarioColor,border:'1px solid '+scenarioColor})},scenarioLabel+' TRAJECTORY'),
+        h('div',{style:{fontSize:12,color:'#64748B'}},'Data: Feb 2026 | Generated: '+new Date().toLocaleDateString())
+      )
+    ),
+    /* Tab Navigation */
+    h('div',{style:S.nav},
+      TABS.map(function(tab,i){
+        return h('button',{key:i,style:activeTab===i?S.navBtnActive:S.navBtn,onClick:function(){setTab(i);}},tab);
+      })
+    ),
+    /* Tab Content */
+    h('div',{style:S.content},tabContent),
+    /* Footer */
+    h('div',{style:S.footer},'Shafston International College | Financial Dashboard 2026 | Data sourced from Xero | Updated '+new Date().toLocaleDateString())
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(h(App));
 </script>
 </body>
 </html>
