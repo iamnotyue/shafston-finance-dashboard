@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Shafston 2026 Financial Dashboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0B1120; color: #E2E8F0; font-family: 'Inter', -apple-system, sans-serif; }
+  #loading { color: #94A3B8; padding: 40px; font-size: 16px; }
+</style>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/prop-types@15/prop-types.min.js" crossorigin></script>
+<script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js" crossorigin></script>
+</head>
+<body>
+<div id="root"><p id="loading">Loading dashboard…</p></div>
+<script>
+window.onerror = function(msg, src, line) {
+  document.getElementById('root').innerHTML = '<p style="color:#EF4444;padding:40px;font-size:16px;">Dashboard Error: ' + msg + ' (line ' + line + ')</p>';
+};
+const { useState, useMemo } = React;
+const { BarChart, Bar, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } = Recharts;
+
+const MONTHLY_TARGETS = { Jan:350000,Feb:400000,Mar:350000,Apr:350000,May:300000,Jun:350000,Jul:700000,Aug:800000,Sep:600000,Oct:500000,Nov:500000,Dec:500000 };
+const ANNUAL_TARGET = 5700000;
+const PRODUCT_LINES = [
+  { key:"ST", name:"Study Tour", targetRev:1800000, targetGP:50.0, deRate:0.50, color:"#0A6EBD" },
+  { key:"SA", name:"Student Arrival", targetRev:1200000, targetGP:35.0, deRate:0.65, color:"#12A89D" },
+  { key:"U18", name:"U18", targetRev:500000, targetGP:48.2, deRate:0.52, color:"#F29727" },
+  { key:"YLC", name:"YLC", targetRev:300000, targetGP:48.2, deRate:0.52, color:"#E74C3C" },
+  { key:"Other", name:"Other", targetRev:1900000, targetGP:85.0, deRate:0.34, color:"#8B5CF6" },
+];
+const SCENARIOS = [
+  { name:"Floor", revenue:3232000, gp:1628000, gpPct:50.4, ebida:-2000, netEbida:-773000 },
+  { name:"Downside", revenue:4162000, gp:2101000, gpPct:50.5, ebida:291000, netEbida:-480000 },
+  { name:"Target", revenue:5700000, gp:2959000, gpPct:51.9, ebida:947000, netEbida:175000 },
+];
+const DEBT_OPENING = { super:114064, ato:735359, refund:72553, commission:344369, stExpenses:4416, opex:502568, payrollTax:88951 };
+const DEBT_OPENING_TOTAL = Object.values(DEBT_OPENING).reduce((a,b)=>a+b,0);
+
+const MONTHLY_DATA = [
+  { month:"Jan", target:350000, revenue:373107, revST:269290, revSA:24124, revU18:4990, revYLC:-2916, revOther:77619,
+    de:81991, deST:19758, deSA:26582, deU18:15430, deYLC:4180, deOther:16041,
+    hr:107677, otherExp:150051, cash:216746, superDebt:76827, atoDebt:725312, debtTotal:1862280, capitalInj:0 },
+  { month:"Feb", target:400000, revenue:615984, revST:412785, revSA:38972, revU18:46315, revYLC:2044, revOther:115869,
+    de:213512, deST:91947, deSA:83433, deU18:27925, deYLC:3237, deOther:6970,
+    hr:173330, otherExp:112578, cash:138509, superDebt:37839, atoDebt:740216, debtTotal:2123464, capitalInj:0 },
+];
+
+const MONTHS_ALL = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const fmt = (n) => { if(n==null) return "—"; const a=Math.abs(n); if(a>=1e6) return (n<0?"-":"")+"$"+(a/1e6).toFixed(2)+"M"; if(a>=1000) return (n<0?"-":"")+"$"+(a/1000).toFixed(0)+"K"; return "$"+n.toFixed(0); };
+const fmtFull = (n) => { if(n==null) return "—"; return "$"+Math.round(n).toLocaleString(); };
+const pct = (n,d) => (d&&d!==0?((n/d)*100).toFixed(1)+"%":"—");
+
+function useMetrics() {
+  return useMemo(() => {
+    const c = MONTHLY_DATA;
+    const me = c.length;
+    const ytdRev = c.reduce((s,m)=>s+m.revenue,0);
+    const ytdTgt = c.reduce((s,m)=>s+m.target,0);
+    const ytdDE = c.reduce((s,m)=>s+m.de,0);
+    const ytdHR = c.reduce((s,m)=>s+m.hr,0);
+    const ytdOth = c.reduce((s,m)=>s+m.otherExp,0);
+    const ytdGP = ytdRev-ytdDE;
+    const ytdGPPct = ytdRev>0?(ytdGP/ytdRev)*100:0;
+    const ytdEBIDA = ytdGP-ytdHR-ytdOth;
+    const proj = me>0?(ytdRev/me)*12:0;
+    const cash = c.length>0?c[c.length-1].cash:0;
+    const debt = c.length>0?c[c.length-1].debtTotal:DEBT_OPENING_TOTAL;
+    const dPaid = DEBT_OPENING_TOTAL-debt;
+    const compPct = (ytdRev/ANNUAL_TARGET)*100;
+    let scen = "Below Floor";
+    if(proj>=5700000) scen="On Target"; else if(proj>=4162000) scen="Downside"; else if(proj>=3232000) scen="Floor";
+    const productYTD = PRODUCT_LINES.map(pl=>{
+      const rev=c.reduce((s,m)=>s+(m[`rev${pl.key}`]||0),0);
+      const de=c.reduce((s,m)=>s+(m[`de${pl.key}`]||0),0);
+      const gp=rev-de; const gpPct=rev>0?(gp/rev)*100:0;
+      const prt=(pl.targetRev/12)*me; const prog=prt>0?(rev/prt)*100:0;
+      return {...pl,rev,de,gp,gpPct,proRataTarget:prt,progress:prog};
+    });
+    const chartData = MONTHS_ALL.map(month=>{
+      const a=c.find(m=>m.month===month);
+      return { month, target:MONTHLY_TARGETS[month], actual:a?a.revenue:null, cash:a?a.cash:null, debt:a?a.debtTotal:null };
+    });
+    let cumT=0,cumA=0;
+    const cumData = MONTHS_ALL.map(month=>{
+      cumT+=MONTHLY_TARGETS[month]; const a=c.find(m=>m.month===month);
+      if(a)cumA+=a.revenue;
+      return {month,cumTarget:cumT,cumActual:a?cumA:null};
+    });
+    const latest=c[c.length-1];
+    const debtBD=latest?[
+      {name:"Super",value:latest.superDebt,color:"#0A6EBD"},
+      {name:"ATO",value:latest.atoDebt,color:"#E74C3C"},
+      {name:"Refund",value:80853,color:"#F29727"},
+      {name:"OPEX",value:1264557,color:"#8B5CF6"},
+    ].filter(d=>d.value>0):[];
+    return { monthsElapsed:me,ytdRevenue:ytdRev,ytdTarget:ytdTgt,ytdDE,ytdHR,ytdOther:ytdOth,ytdGP,ytdGPPct,ytdEBIDA,projected:proj,
+      latestCash:cash,latestDebt:debt,debtPaid:dPaid,completionPct:compPct,scenario:scen,productYTD,chartData,cumulativeData:cumData,debtBreakdown:debtBD,completed:c };
+  },[]);
+}
+
+const TT = ({active,payload,label}) => {
+  if(!active||!payload) return null;
+  return React.createElement('div',{style:{background:"#1E293B",border:"1px solid #475569",borderRadius:8,padding:"10px 14px",fontSize:12}},
+    React.createElement('div',{style:{fontWeight:600,marginBottom:6,color:"#F8FAFC"}},label),
+    payload.map((p,i)=>React.createElement('div',{key:i,style:{color:p.color||"#94A3B8",marginBottom:2}},p.name+": "+fmtFull(p.value)))
+  );
+};
+
+function App() {
+  const [view,setView] = useState("overview");
+  const m = useMetrics();
+  const cashOk = m.latestCash>=50000;
+
+  const tabs = [{k:"overview",l:"Overview"},{k:"revenue",l:"Revenue"},{k:"products",l:"Products"},{k:"cashdebt",l:"Cash & Debt"},{k:"scenarios",l:"Scenarios"}];
+
+  const kpiCard = (label,value,sub,alert,valColor) => React.createElement('div',{style:alert?
+    {background:"#1E293B",borderRadius:12,padding:"18px 20px",border:"1px solid #EF4444",boxShadow:"0 0 12px rgba(239,68,68,0.3)"}:
+    {background:"#1E293B",borderRadius:12,padding:"18px 20px",border:"1px solid #334155"}},
+    React.createElement('div',{style:{fontSize:12,color:"#94A3B8",textTransform:"uppercase",letterSpacing:0.5,marginBottom:4}},label),
+    React.createElement('div',{style:{fontSize:26,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",color:valColor||"#F8FAFC"}},value),
+    sub&&React.createElement('div',{style:{fontSize:12,marginTop:4,color:"#94A3B8"}},sub)
+  );
+
+  const badge = (text,color) => React.createElement('span',{style:{background:color,color:"#fff",fontSize:11,fontWeight:600,padding:"3px 10px",borderRadius:12,textTransform:"uppercase"}},text);
+
+  // Overview
+  const overview = () => React.createElement('div',null,
+    React.createElement('div',{style:{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:16,marginBottom:20}},
+      kpiCard("YTD Revenue",fmt(m.ytdRevenue),pct(m.ytdRevenue,m.ytdTarget)+" of target"),
+      kpiCard("Annual Completion",m.completionPct.toFixed(1)+"%",m.monthsElapsed+"/12 months"),
+      kpiCard("Projected Annual",fmt(m.projected),React.createElement('span',null,badge(m.scenario,m.scenario==="On Target"?"#22C55E":m.scenario==="Downside"?"#F59E0B":"#EF4444"))),
+      kpiCard("Cash Position",fmt(m.latestCash),cashOk?"Above $50K":"BELOW $50K ALERT",!cashOk,cashOk?"#22C55E":"#EF4444"),
+      kpiCard("Total Debt",fmt(m.latestDebt),(m.debtPaid>0?"Paid ":"Increased ")+fmt(Math.abs(m.debtPaid))),
+      kpiCard("Gross Profit %",m.ytdGPPct.toFixed(1)+"%","Target: 51.9%",false,m.ytdGPPct>=50?"#22C55E":"#F59E0B")
+    ),
+    React.createElement('div',{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}},
+      React.createElement('div',{style:{background:"#1E293B",borderRadius:12,padding:20,border:"1px solid #334155"}},
+        React.createElement('div',{style:{fontSize:15,fontWeight:600,color:"#F8FAFC",marginBottom:14}},"Monthly Revenue vs Target"),
+        React.createElement(ResponsiveContainer,{width:"100%",height:260},
+          React.createElement(BarChart,{data:m.chartData.slice(0,6)},
+            React.createElement(CartesianGrid,{strokeDasharray:"3 3",stroke:"#334155"}),
+            React.createElement(XAxis,{dataKey:"month",stroke:"#94A3B8",fontSize:12}),
+            React.createElement(YAxis,{stroke:"#94A3B8",fontSize:11,tickFormatter:fmt}),
+            React.createElement(Tooltip,{content:React.createElement(TT)}),
+            React.createElement(Bar,{dataKey:"target",fill:"#334155",radius:[4,4,0,0],name:"Target"}),
+            React.createElement(Bar,{dataKey:"actual",fill:"#3B82F6",radius:[4,4,0,0],name:"Actual"})
+          )
+        )
+      ),
+      React.createElement('div',{style:{background:"#1E293B",borderRadius:12,padding:20,border:"1px solid #334155"}},
+        React.createElement('div',{style:{fontSize:15,fontWeight:600,color:"#F8FAFC",marginBottom:14}},"Revenue by Product (YTD)"),
+        React.createElement(ResponsiveContainer,{width:"100%",height:260},
+          React.createElement(PieChart,null,
+            React.createElement(Pie,{data:m.productYTD.filter(p=>p.rev>0),dataKey:"rev",nameKey:"name",cx:"50%",cy:"50%",outerRadius:100,
+              label:({name,percent})=>name+" "+(percent*100).toFixed(0)+"%"},
+              m.productYTD.filter(p=>p.rev>0).map((p,i)=>React.createElement(Cell,{key:i,fill:p.color}))
+            ),
+            React.createElement(Tooltip,{formatter:v=>fmtFull(v)})
+          )
+        )
+      )
+    ),
+    // Monthly table
+    React.createElement('div',{style:{background:"#1E293B",borderRadius:12,padding:20,border:"1px solid #334155"}},
+      React.createElement('div',{style:{fontSize:15,fontWeight:600,color:"#F8FAFC",marginBottom:14}},"Monthly Detail"),
+      React.createElement('table',{style:{width:"100%",borderCollapse:"collapse",fontSize:13}},
+        React.createElement('thead',null,
+          React.createElement('tr',null,
+            ["Month","Target","Actual","Completion","GP","GP%","EBIDA","Cash","Debt"].map(h=>
+              React.createElement('th',{key:h,style:{textAlign:"left",padding:"10px 12px",borderBottom:"1px solid #334155",color:"#94A3B8",fontWeight:600,fontSize:11,textTransform:"uppercase"}},h)
+            )
+          )
+        ),
+        React.createElement('tbody',null,
+          m.completed.map(d=>{
+            const gp=d.revenue-d.de;const eb=gp-d.hr-d.otherExp;
+            return React.createElement('tr',{key:d.month},
+              React.createElement('td',{style:{padding:"10px 12px",borderBottom:"1px solid #1E293B",fontFamily:"monospace"}},d.month),
+              React.createElement('td',{style:{padding:"10px 12px",borderBottom:"1px solid #1E293B",fontFamily:"monospace"}},fmtFull(d.target)),
+              React.createElement('td',{style:{padding:"10px 12px",borderBottom:"1px solid #1E293B",fontFamily:"monospace",color:d.revenue>=d.target?"#22C55E":"#F59E0B"}},fmtFull(d.revenue)),
+              React.createElement('td',{style:{padding:"10px 12px",borderBottom:"1px solid #1E293B",fontFamily:"monospace"}},pct(d.revenue,d.target)),
+              React.createElement('td',{style:{padding:"10px 12px",borderBottom:"1px solid #1E293B",fontFamily:"monospace"}},fmtFull(gp)),
+              React.createElement('td',{style:{padding:"10px 12px",borderBottom:"1px solid #1E293B",fontFamily:"monospace"}},pct(gp,d.revenue)),
+              React.createElement('td',{style:{padding:"10px 12px",borderBottom:"1px solid #1E293B",fontFamily:"monospace",color:eb>=0?"#22C55E":"#EF4444"}},fmtFull(eb)),
+              React.createElement('td',{style:{padding:"10px 12px",borderBottom:"1px solid #1E293B",fontFamily:"monospace",color:d.cash>=50000?"#F8FAFC":"#EF4444"}},fmtFull(d.cash)),
+              React.createElement('td',{style:{padding:"10px 12px",borderBottom:"1px solid #1E293B",fontFamily:"monospace"}},fmt(d.debtTotal))
+            );
+          }),
+          React.createElement('tr',{style:{fontWeight:700,borderTop:"2px solid #475569"}},
+            React.createElement('td',{style:{padding:"10px 12px",fontFamily:"monospace"}},"YTD"),
+            React.createElement('td',{style:{padding:"10px 12px",fontFamily:"monospace"}},fmtFull(m.ytdTarget)),
+            React.createElement('td',{style:{padding:"10px 12px",fontFamily:"monospace",color:"#3B82F6"}},fmtFull(m.ytdRevenue)),
+            React.createElement('td',{style:{padding:"10px 12px",fontFamily:"monospace"}},pct(m.ytdRevenue,m.ytdTarget)),
+            React.createElement('td',{style:{padding:"10px 12px",fontFamily:"monospace"}},fmtFull(m.ytdGP)),
+            React.createElement('td',{style:{padding:"10px 12px",fontFamily:"monospace"}},m.ytdGPPct.toFixed(1)+"%"),
+            React.createElement('td',{style:{padding:"10px 12px",fontFamily:"monospace",color:m.ytdEBIDA>=0?"#22C55E":"#EF4444"}},fmtFull(m.ytdEBIDA)),
+            React.createElement('td',{style:{padding:"10px 12px",fontFamily:"monospace"}},fmtFull(m.latestCash)),
+            React.createElement('td',{style:{padding:"10px 12px",fontFamily:"monospace"}},fmt(m.latestDebt))
+          )
+        )
+      )
+    )
+  );
+
+  // Revenue
+  const revenue = () => React.createElement('div',null,
+    React.createElement('div',{style:{fontSize:18,fontWeight:700,color:"#F8FAFC",marginBottom:16}},"Revenue Analysis"),
+    React.createElement('div',{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}},
+      React.createElement('div',{style:{background:"#1E293B",borderRadius:12,padding:20,border:"1px solid #334155"}},
+        React.createElement('div',{style:{fontSize:15,fontWeight:600,color:"#F8FAFC",marginBottom:14}},"Monthly Actual vs Target"),
+        React.createElement(ResponsiveContainer,{width:"100%",height:300},
+          React.createElement(ComposedChart,{data:m.chartData},
+            React.createElement(CartesianGrid,{strokeDasharray:"3 3",stroke:"#334155"}),
+            React.createElement(XAxis,{dataKey:"month",stroke:"#94A3B8",fontSize:12}),
+            React.createElement(YAxis,{stroke:"#94A3B8",fontSize:11,tickFormatter:fmt}),
+            React.createElement(Tooltip,{content:React.createElement(TT)}),
+            React.createElement(Legend),
+            React.createElement(Bar,{dataKey:"target",fill:"#334155",radius:[4,4,0,0],name:"Target"}),
+            React.createElement(Bar,{dataKey:"actual",fill:"#3B82F6",radius:[4,4,0,0],name:"Actual"}),
+            React.createElement(ReferenceLine,{y:475000,stroke:"#F59E0B",strokeDasharray:"5 5"})
+          )
+        )
+      ),
+      React.createElement('div',{style:{background:"#1E293B",borderRadius:12,padding:20,border:"1px solid #334155"}},
+        React.createElement('div',{style:{fontSize:15,fontWeight:600,color:"#F8FAFC",marginBottom:14}},"Cumulative Revenue Path"),
+        React.createElement(ResponsiveContainer,{width:"100%",height:300},
+          React.createElement(AreaChart,{data:m.cumulativeData},
+            React.createElement(CartesianGrid,{strokeDasharray:"3 3",stroke:"#334155"}),
+            React.createElement(XAxis,{dataKey:"month",stroke:"#94A3B8",fontSize:12}),
+            React.createElement(YAxis,{stroke:"#94A3B8",fontSize:11,tickFormatter:fmt}),
+            React.createElement(Tooltip,{content:React.createElement(TT)}),
+            React.createElement(Legend),
+            React.createElement(Area,{type:"monotone",dataKey:"cumTarget",fill:"#334155",stroke:"#64748B",name:"Target Path",fillOpacity:0.3}),
+            React.createElement(Area,{type:"monotone",dataKey:"cumActual",fill:"#3B82F6",stroke:"#3B82F6",name:"Actual",fillOpacity:0.3,connectNulls:false}),
+            React.createElement(ReferenceLine,{y:3600000,stroke:"#EF4444",strokeDasharray:"5 5"})
+          )
+        )
+      )
+    ),
+    React.createElement('div',{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16}},
+      kpiCard("YTD Revenue",fmtFull(m.ytdRevenue),pct(m.ytdRevenue,m.ytdTarget)+" of "+fmtFull(m.ytdTarget)),
+      kpiCard("Run-Rate Projection",fmt(m.projected),"Based on "+m.monthsElapsed+" months"),
+      kpiCard("Feb Revenue",fmtFull(615984),"154.0% of $400K target")
+    )
+  );
+
+  // Products
+  const products = () => {
+    const barData = m.productYTD.filter(p=>p.rev>0).map(p=>({name:p.name,revenue:p.rev,directCost:p.de}));
+    return React.createElement('div',null,
+      React.createElement('div',{style:{fontSize:18,fontWeight:700,color:"#F8FAFC",marginBottom:16}},"Product Line Performance"),
+      React.createElement('div',{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}},
+        React.createElement('div',{style:{background:"#1E293B",borderRadius:12,padding:20,border:"1px solid #334155"}},
+          React.createElement('div',{style:{fontSize:15,fontWeight:600,color:"#F8FAFC",marginBottom:14}},"Revenue by Product (YTD)"),
+          React.createElement(ResponsiveContainer,{width:"100%",height:300},
+            React.createElement(PieChart,null,
+              React.createElement(Pie,{data:m.productYTD.filter(p=>p.rev>0),dataKey:"rev",nameKey:"name",cx:"50%",cy:"50%",innerRadius:60,outerRadius:110,
+                label:({name,percent})=>name+" "+(percent*100).toFixed(0)+"%"},
+                m.productYTD.filter(p=>p.rev>0).map((p,i)=>React.createElement(Cell,{key:i,fill:p.color}))
+              ),
+              React.createElement(Tooltip,{formatter:v=>fmtFull(v)})
+            )
+          )
+        ),
+        React.createElement('div',{style:{background:"#1E293B",borderRadius:12,padding:20,border:"1px solid #334155"}},
+          React.createElement('div',{style:{fontSize:15,fontWeight:600,color:"#F8FAFC",marginBottom:14}},"Revenue vs Direct Cost"),
+          React.createElement(ResponsiveContainer,{width:"100%",height:300},
+            React.createElement(BarChart,{data:barData,layout:"vertical"},
+              React.createElement(CartesianGrid,{strokeDasharray:"3 3",stroke:"#334155"}),
+              React.createElement(XAxis,{type:"number",stroke:"#94A3B8",fontSize:11,tickFormatter:fmt}),
+              React.createElement(YAxis,{type:"category",dataKey:"name",stroke:"#94A3B8",fontSize:12,width:100}),
+              React.createElement(Tooltip,{content:React.createElement(TT)}),
+              React.createElement(Legend),
+              React.createElement(Bar,{dataKey:"revenue",fill:"#3B82F6",name:"Revenue",radius:[0,4,4,0]}),
+              React.createElement(Bar,{dataKey:"directCost",fill:"#EF4444",name:"Direct Cost",radius:[0,4,4,0]})
+            )
+          )
+        )
+      ),
+      React.createElement('div',{style:{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:16}},
+        m.productYTD.map(p=>{
+          const gpOk=p.gpPct>=p.targetGP-10;
+          return React.createElement('div',{key:p.key,style:{background:"#1E293B",borderRadius:12,padding:"18px 20px",border:"1px solid #334155",borderLeft:"3px solid "+p.color}},
+            React.createElement('div',{style:{fontSize:14,fontWeight:600,color:"#F8FAFC",marginBottom:8}},p.name),
+            React.createElement('div',{style:{fontSize:12,color:"#94A3B8",marginBottom:2}},"Revenue: ",React.createElement('span',{style:{color:"#F8FAFC",fontFamily:"monospace"}},fmtFull(p.rev))),
+            React.createElement('div',{style:{fontSize:12,color:"#94A3B8",marginBottom:2}},"GP%: ",React.createElement('span',{style:{color:gpOk?"#22C55E":"#F59E0B",fontWeight:600}},p.gpPct.toFixed(1)+"%")," (target "+p.targetGP+"%)"),
+            React.createElement('div',{style:{fontSize:12,color:"#94A3B8",marginBottom:2}},"Annual Target: "+fmt(p.targetRev)),
+            React.createElement('div',{style:{height:6,borderRadius:3,background:"#334155",overflow:"hidden",marginTop:8}},
+              React.createElement('div',{style:{height:"100%",width:Math.min(p.progress,100)+"%",background:p.color,borderRadius:3}})
+            ),
+            React.createElement('div',{style:{fontSize:11,color:"#64748B",marginTop:4}},p.progress.toFixed(0)+"% of pro-rata target")
+          );
+        })
+      )
+    );
+  };
+
+  // Cash & Debt
+  const cashdebt = () => {
+    const dtm=771177/12;
+    const cdd=MONTHS_ALL.slice(0,6).map((month,i)=>{
+      const a=m.completed.find(d=>d.month===month);
+      return{month,cash:a?a.cash:null,debt:a?a.debtTotal:null,debtTarget:DEBT_OPENING_TOTAL-dtm*(i+1)};
+    });
+    return React.createElement('div',null,
+      React.createElement('div',{style:{fontSize:18,fontWeight:700,color:"#F8FAFC",marginBottom:16}},"Cash & Debt Management"),
+      React.createElement('div',{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:16,marginBottom:16}},
+        kpiCard("Cash Balance",fmtFull(m.latestCash),null,!cashOk,cashOk?"#22C55E":"#EF4444"),
+        kpiCard("Total Debt",fmt(m.latestDebt)),
+        kpiCard("Debt Change YTD",(m.debtPaid>0?"-":"+")+fmt(Math.abs(m.debtPaid)),null,false,m.debtPaid>0?"#22C55E":"#EF4444"),
+        kpiCard("YTD EBIDA",fmtFull(m.ytdEBIDA),null,false,m.ytdEBIDA>=0?"#22C55E":"#EF4444")
+      ),
+      React.createElement('div',{style:{display:"grid",gridTemplateColumns:"2fr 1fr",gap:16,marginBottom:16}},
+        React.createElement('div',{style:{background:"#1E293B",borderRadius:12,padding:20,border:"1px solid #334155"}},
+          React.createElement('div',{style:{fontSize:15,fontWeight:600,color:"#F8FAFC",marginBottom:14}},"Cash & Debt Trend"),
+          React.createElement(ResponsiveContainer,{width:"100%",height:300},
+            React.createElement(ComposedChart,{data:cdd},
+              React.createElement(CartesianGrid,{strokeDasharray:"3 3",stroke:"#334155"}),
+              React.createElement(XAxis,{dataKey:"month",stroke:"#94A3B8",fontSize:12}),
+              React.createElement(YAxis,{yAxisId:"left",stroke:"#22C55E",fontSize:11,tickFormatter:fmt}),
+              React.createElement(YAxis,{yAxisId:"right",orientation:"right",stroke:"#EF4444",fontSize:11,tickFormatter:fmt}),
+              React.createElement(Tooltip,{content:React.createElement(TT)}),
+              React.createElement(Legend),
+              React.createElement(Bar,{yAxisId:"left",dataKey:"cash",fill:"#22C55E",name:"Cash",radius:[4,4,0,0],opacity:0.8}),
+              React.createElement(Line,{yAxisId:"right",type:"monotone",dataKey:"debt",stroke:"#EF4444",strokeWidth:2,name:"Debt",connectNulls:false}),
+              React.createElement(Line,{yAxisId:"right",type:"monotone",dataKey:"debtTarget",stroke:"#F59E0B",strokeDasharray:"5 5",strokeWidth:1,name:"Debt Target"})
+            )
+          )
+        ),
+        React.createElement('div',{style:{background:"#1E293B",borderRadius:12,padding:20,border:"1px solid #334155"}},
+          React.createElement('div',{style:{fontSize:15,fontWeight:600,color:"#F8FAFC",marginBottom:14}},"Debt Breakdown"),
+          React.createElement(ResponsiveContainer,{width:"100%",height:300},
+            React.createElement(PieChart,null,
+              React.createElement(Pie,{data:m.debtBreakdown,dataKey:"value",nameKey:"name",cx:"50%",cy:"50%",outerRadius:100,
+                label:({name,percent})=>name+" "+(percent*100).toFixed(0)+"%"},
+                m.debtBreakdown.map((d,i)=>React.createElement(Cell,{key:i,fill:d.color}))
+              ),
+              React.createElement(Tooltip,{formatter:v=>fmtFull(v)})
+            )
+          )
+        )
+      )
+    );
+  };
+
+  // Scenarios
+  const scenarios = () => {
+    const sd=SCENARIOS.map(s=>({name:s.name,Revenue:s.revenue,"Gross Profit":s.gp,EBIDA:s.ebida,"Net EBIDA":s.netEbida}));
+    const gMin=2500000,gMax=6500000;
+    const projPos=Math.max(0,Math.min(100,((m.projected-gMin)/(gMax-gMin))*100));
+    return React.createElement('div',null,
+      React.createElement('div',{style:{fontSize:18,fontWeight:700,color:"#F8FAFC",marginBottom:16}},"Scenario Analysis"),
+      React.createElement('div',{style:{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16,marginBottom:16}},
+        kpiCard("Break-even (excl. debt)","$3.6M"),
+        kpiCard("Break-even (incl. debt)","$5.1M"),
+        kpiCard("Current Projection",fmt(m.projected),React.createElement('span',null,badge(m.scenario+" Trajectory",m.scenario==="On Target"?"#22C55E":m.scenario==="Floor"?"#EF4444":"#F59E0B")))
+      ),
+      React.createElement('div',{style:{background:"#1E293B",borderRadius:12,padding:20,border:"1px solid #334155",marginBottom:16}},
+        React.createElement('div',{style:{fontSize:15,fontWeight:600,color:"#F8FAFC",marginBottom:14}},"Projection Gauge"),
+        React.createElement('div',{style:{position:"relative",height:50,margin:"20px 0"}},
+          React.createElement('div',{style:{display:"flex",height:20,borderRadius:10,overflow:"hidden"}},
+            React.createElement('div',{style:{width:((3232000-gMin)/(gMax-gMin))*100+"%",background:"#7F1D1D"}}),
+            React.createElement('div',{style:{width:((4162000-3232000)/(gMax-gMin))*100+"%",background:"#EF4444"}}),
+            React.createElement('div',{style:{width:((5700000-4162000)/(gMax-gMin))*100+"%",background:"#F59E0B"}}),
+            React.createElement('div',{style:{flex:1,background:"#22C55E"}})
+          ),
+          React.createElement('div',{style:{position:"absolute",left:projPos+"%",top:-6,transform:"translateX(-50%)"}},
+            React.createElement('div',{style:{width:3,height:32,background:"#F8FAFC",borderRadius:2}}),
+            React.createElement('div',{style:{fontSize:11,color:"#F8FAFC",fontWeight:600,textAlign:"center",marginTop:2}},fmt(m.projected))
+          ),
+          React.createElement('div',{style:{display:"flex",justifyContent:"space-between",marginTop:4,fontSize:10,color:"#64748B"}},
+            React.createElement('span',null,"Below Floor"),
+            React.createElement('span',null,"Floor $3.2M"),
+            React.createElement('span',null,"Downside $4.2M"),
+            React.createElement('span',null,"Target $5.7M")
+          )
+        )
+      ),
+      React.createElement('div',{style:{background:"#1E293B",borderRadius:12,padding:20,border:"1px solid #334155"}},
+        React.createElement('div',{style:{fontSize:15,fontWeight:600,color:"#F8FAFC",marginBottom:14}},"Scenario Comparison"),
+        React.createElement(ResponsiveContainer,{width:"100%",height:300},
+          React.createElement(BarChart,{data:sd},
+            React.createElement(CartesianGrid,{strokeDasharray:"3 3",stroke:"#334155"}),
+            React.createElement(XAxis,{dataKey:"name",stroke:"#94A3B8",fontSize:12}),
+            React.createElement(YAxis,{stroke:"#94A3B8",fontSize:11,tickFormatter:fmt}),
+            React.createElement(Tooltip,{content:React.createElement(TT)}),
+            React.createElement(Legend),
+            React.createElement(Bar,{dataKey:"Revenue",fill:"#3B82F6",radius:[4,4,0,0]}),
+            React.createElement(Bar,{dataKey:"Gross Profit",fill:"#22C55E",radius:[4,4,0,0]}),
+            React.createElement(Bar,{dataKey:"EBIDA",fill:"#F59E0B",radius:[4,4,0,0]}),
+            React.createElement(Bar,{dataKey:"Net EBIDA",fill:"#8B5CF6",radius:[4,4,0,0]})
+          )
+        )
+      )
+    );
+  };
+
+  return React.createElement('div',{style:{background:"#0B1120",color:"#E2E8F0",minHeight:"100vh",fontFamily:"'Inter',sans-serif",padding:"20px 24px"}},
+    React.createElement('div',{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24,flexWrap:"wrap",gap:12}},
+      React.createElement('div',{style:{fontSize:22,fontWeight:700,color:"#F8FAFC",display:"flex",alignItems:"center",gap:10}},
+        React.createElement('span',{style:{width:10,height:10,borderRadius:"50%",background:cashOk?"#22C55E":"#EF4444",display:"inline-block",boxShadow:cashOk?"0 0 8px #22C55E":"0 0 8px #EF4444"}}),
+        "Shafston 2026 Financial Dashboard",
+        badge(m.scenario+" Trajectory",m.scenario==="On Target"?"#22C55E":m.scenario==="Floor"?"#EF4444":"#F59E0B"),
+        React.createElement('span',{style:{fontSize:12,color:"#64748B",fontWeight:400,marginLeft:8}},"Data: 2 Mar 2026")
+      ),
+      React.createElement('div',{style:{display:"flex",gap:6}},
+        tabs.map(t=>React.createElement('button',{key:t.k,onClick:()=>setView(t.k),style:{padding:"8px 18px",borderRadius:8,border:"none",cursor:"pointer",fontSize:13,fontWeight:600,background:view===t.k?"#3B82F6":"#1E293B",color:view===t.k?"#fff":"#94A3B8"}},t.l))
+      )
+    ),
+    view==="overview"&&overview(),
+    view==="revenue"&&revenue(),
+    view==="products"&&products(),
+    view==="cashdebt"&&cashdebt(),
+    view==="scenarios"&&scenarios(),
+    React.createElement('div',{style:{textAlign:"center",color:"#475569",fontSize:11,marginTop:24,paddingBottom:12}},"Shafston International College | 2026 Financial Dashboard | Generated 2 Mar 2026 from Xero")
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+</script>
+</body>
+</html>
