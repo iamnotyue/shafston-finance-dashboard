@@ -71,7 +71,8 @@ var FY2025 = {
   netProfit:840753,
   monthly:{
     Jan:{revenue:650000,de:230000,gp:420000,gpPct:64.6,opex:360000,ebida:60000,cash:180000},
-    Feb:{revenue:720000,de:260000,gp:460000,gpPct:63.9,opex:355000,ebida:105000,cash:210000}
+    Feb:{revenue:720000,de:260000,gp:460000,gpPct:63.9,opex:355000,ebida:105000,cash:210000},
+    Mar:{revenue:201000,de:405000,gp:-204000,gpPct:-101.5,opex:273000,ebida:-477000,cash:0}
   }
 };
 
@@ -609,7 +610,7 @@ function CashTab(){
     h('div',{style:S.section},
       h('div',{style:S.sectionTitle},'3-Month Forecast Detail'),
       h(DataTable,{
-        headers:['','Mar','Apr','May'],
+        headers:['','Apr','May','Jun'],
         rows:[
           ['Data Source',cashForecast[0].source,cashForecast[1].source,cashForecast[2].source],
           ['Opening Cash',fmtFull(cashForecast[0].opening),fmtFull(cashForecast[1].opening),fmtFull(cashForecast[2].opening)],
@@ -624,7 +625,7 @@ function CashTab(){
       h('div',{style:{marginTop:12,padding:12,background:'#0F172A',borderRadius:8,border:'1px solid #334155'}},
         h('div',{style:{fontSize:12,color:'#94A3B8'}},
           h('span',{style:{fontWeight:700,color:'#60A5FA'}},'Sources: '),
-          'Mar = 1-Month Accrued (AR $97.7K) | Apr = AI 2-Month ($197.8K) | May = Target ($300K)'
+          'Apr = 1-Month Accrued (AR $206K) | May = AI 2-Month ($237K) | Jun = Target ($350K)'
         )
       )
     )
