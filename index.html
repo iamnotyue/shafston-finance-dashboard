@@ -51,7 +51,8 @@ var PRODUCT_LINES = [
 var COST_BUDGET = {hr:97347,rent:31683,opex:12833,sales:25839};
 var MONTHLY_OPEX_BUDGET = 97347+31683+12833+25839;
 
-var DEBT_OPENING = {ato:732359,refund:72553,commission:334467,stExpenses:0,opex:496337,payrollTax:82108,total:1775246};
+/* Opening debt aligned to Debt Management Dashboard (Trade $620K + Statutory $924K = $1,544K) */
+var DEBT_OPENING = {ato:731000,super_:97000,payrollTax:96000,rentOutgoing:98000,opex:56000,studyTour:16000,refund:82000,commission:367000,total:1543000};
 var MONTHLY_DEBT_TARGET = 64265;
 var ANNUAL_DEBT_TARGET = 771177;
 
@@ -99,9 +100,9 @@ var MONTHLY_DATA = [
     debtTotal:1360204}
 ];
 
-/* Debt from xero_ap_debt.js: Trade $529,927 (Commission+Refund+Rent+OPEX) + Statutory $830,277 (ATO+Super+PayrollTax) = $1,360,204 */
-var DEBT_CURRENT = {ato:724508,refund:70589,commission:355450,stExpenses:0,opex:103888,payrollTax:75266};
-var DEBT_TOTAL = 1360204;
+/* Current debt from xero_ap_debt.js — aligned to Debt Management Dashboard categories */
+var DEBT_CURRENT = {ato:724508,super_:30503,payrollTax:75266,rentOutgoing:68022,opex:35866,studyTour:0,refund:70589,commission:355450};
+var DEBT_TOTAL = 724508+30503+75266+68022+35866+0+70589+355450;
 
 var PREDICTIONS = {
   Apr:{col_e:null,col_d:197777,source:'AI 2-Month'},
@@ -193,11 +194,14 @@ var cashTrendData = MONTHLY_DATA.map(function(m){return{month:m.month,actual:m.c
 
 /* Debt pie */
 var debtPieData = [
-  {name:'ATO',value:DEBT_CURRENT.ato,color:'#EF4444'},
-  {name:'Commission',value:DEBT_CURRENT.commission,color:'#3B82F6'},
-  {name:'OPEX',value:DEBT_CURRENT.opex,color:'#8B5CF6'},
-  {name:'Refund',value:DEBT_CURRENT.refund,color:'#F59E0B'},
-  {name:'ST Expenses',value:DEBT_CURRENT.stExpenses,color:'#10B981'}
+  {name:'ATO',value:DEBT_CURRENT.ato,color:'#F97316'},
+  {name:'Super',value:DEBT_CURRENT.super_,color:'#EC4899'},
+  {name:'Payroll Tax',value:DEBT_CURRENT.payrollTax,color:'#14B8A6'},
+  {name:'Rent & Outgoing',value:DEBT_CURRENT.rentOutgoing,color:'#F59E0B'},
+  {name:'OPEX',value:DEBT_CURRENT.opex,color:'#3B82F6'},
+  {name:'Commission',value:DEBT_CURRENT.commission,color:'#8B5CF6'},
+  {name:'Refund',value:DEBT_CURRENT.refund,color:'#F87171'},
+  {name:'Study Tour',value:DEBT_CURRENT.studyTour,color:'#10B981'}
 ].filter(function(d){return d.value>0;});
 
 /* ========== STYLES ========== */
@@ -528,11 +532,13 @@ function DebtTab(){
         headers:['Category','Opening','Current','Change','Notes'],
         rows:[
           ['ATO',fmtFull(DEBT_OPENING.ato),fmtFull(DEBT_CURRENT.ato),fmtFull(DEBT_CURRENT.ato-DEBT_OPENING.ato),'Payment plan active'],
-          ['Refund',fmtFull(DEBT_OPENING.refund),fmtFull(DEBT_CURRENT.refund),fmtFull(DEBT_CURRENT.refund-DEBT_OPENING.refund),'Process as arise'],
-          ['Commission',fmtFull(DEBT_OPENING.commission),fmtFull(DEBT_CURRENT.commission),fmtFull(DEBT_CURRENT.commission-DEBT_OPENING.commission),'Agent payments'],
-          ['ST Expenses',fmtFull(DEBT_OPENING.stExpenses),fmtFull(DEBT_CURRENT.stExpenses),fmtFull(DEBT_CURRENT.stExpenses),'Seasonal'],
+          ['Super',fmtFull(DEBT_OPENING.super_),fmtFull(DEBT_CURRENT.super_),fmtFull(DEBT_CURRENT.super_-DEBT_OPENING.super_),'Quarterly clearance'],
+          ['Payroll Tax',fmtFull(DEBT_OPENING.payrollTax),fmtFull(DEBT_CURRENT.payrollTax),fmtFull(DEBT_CURRENT.payrollTax-DEBT_OPENING.payrollTax),'QRO payment plan'],
+          ['Rent & Outgoing',fmtFull(DEBT_OPENING.rentOutgoing),fmtFull(DEBT_CURRENT.rentOutgoing),fmtFull(DEBT_CURRENT.rentOutgoing-DEBT_OPENING.rentOutgoing),'Council rates + utilities'],
           ['OPEX',fmtFull(DEBT_OPENING.opex),fmtFull(DEBT_CURRENT.opex),fmtFull(DEBT_CURRENT.opex-DEBT_OPENING.opex),'Negotiate terms'],
-          ['Payroll Tax',fmtFull(DEBT_OPENING.payrollTax),fmtFull(DEBT_CURRENT.payrollTax),fmtFull(DEBT_CURRENT.payrollTax-DEBT_OPENING.payrollTax),'Cleared'],
+          ['Commission',fmtFull(DEBT_OPENING.commission),fmtFull(DEBT_CURRENT.commission),fmtFull(DEBT_CURRENT.commission-DEBT_OPENING.commission),'Agent payments'],
+          ['Refund',fmtFull(DEBT_OPENING.refund),fmtFull(DEBT_CURRENT.refund),fmtFull(DEBT_CURRENT.refund-DEBT_OPENING.refund),'Process as arise'],
+          ['Study Tour',fmtFull(DEBT_OPENING.studyTour),fmtFull(DEBT_CURRENT.studyTour),fmtFull(DEBT_CURRENT.studyTour-DEBT_OPENING.studyTour),'Seasonal'],
           ['Total',fmtFull(DEBT_OPENING.total),fmtFull(DEBT_TOTAL),fmtFull(DEBT_TOTAL-DEBT_OPENING.total),'']
         ],totalRow:true
       })
