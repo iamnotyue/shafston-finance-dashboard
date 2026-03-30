@@ -83,14 +83,14 @@ var MONTHLY_DATA = [
     gp:295472,gpPct:79.2,
     opex:{hr:109344,rent:46208,sales:14479,operating:92053,total:262084},
     ebida:33389,cash:216746,super_:76827,ato:725312,
-    debtTotal:1862280},
+    debtTotal:1496140},
   {month:'Feb',target:400000,
     revenue:{st:412785,sa:38972,u18:46315,ylc:2044,other:115869,total:615984},
     de:{st:91055,sa:83433,u18:27925,ylc:3237,other:5590,total:211240},
     gp:404744,gpPct:65.7,
     opex:{hr:140781,rent:70970,sales:1204,operating:42944,total:255899},
     ebida:148846,cash:138215,super_:37839,ato:740216,
-    debtTotal:2085627},
+    debtTotal:1383181},
   {month:'Mar',target:350000,
     revenue:{st:135703,sa:30496,u18:13456,ylc:8820,other:94780,total:283255},
     de:{st:185047,sa:16439,u18:34949,ylc:0,other:0,total:236435},
@@ -176,7 +176,7 @@ var debtTrackingData = MONTHS.map(function(m,i){
 /* Cash forecast */
 var cashForecast = [];
 var prevCash = latestCash;
-['Mar','Apr','May'].forEach(function(m){
+['Apr','May','Jun'].forEach(function(m){
   var pred = PREDICTIONS[m]||{};
   var bestRev = pred.col_e||pred.col_d||MONTHLY_TARGETS[m];
   var predDE = Math.round(bestRev*0.45);
@@ -552,7 +552,7 @@ function CashTab(){
   return h('div',null,
     h('div',{style:S.kpiRow},
       h(KpiCard,{label:'Current Cash',value:fmtFull(latestCash),sub:'End of '+MONTHLY_DATA[MONTHLY_DATA.length-1].month,alert:latestCash<50000?'red':latestCash<150000?'amber':null}),
-      h(KpiCard,{label:'Predicted Mar Cash',value:nextCash!=null?fmtFull(nextCash):'-',sub:'Source: '+cashForecast[0].source,alert:nextCash!=null&&nextCash<0?'red':nextCash!=null&&nextCash<50000?'amber':null}),
+      h(KpiCard,{label:'Predicted Apr Cash',value:nextCash!=null?fmtFull(nextCash):'-',sub:'Source: '+(cashForecast.length>0?cashForecast[0].source:'N/A'),alert:nextCash!=null&&nextCash<0?'red':nextCash!=null&&nextCash<50000?'amber':null}),
       h(KpiCard,{label:'Net Monthly Cash Flow',value:fmtFull(ytdEBIDA/monthsElapsed),sub:'Revenue - All Expenses',trendUp:ytdEBIDA>0,valueColor:ytdEBIDA>=0?'#10B981':'#EF4444'}),
       h(KpiCard,{label:'Cash Runway',value:ytdEBIDA>0?'Generating Cash':'~'+Math.round(latestCash/(ytdOpEx/monthsElapsed))+' months',sub:ytdEBIDA>0?'YTD EBIDA: '+fmtFull(ytdEBIDA):'At current rate',trendUp:ytdEBIDA>0})
     ),
