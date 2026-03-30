@@ -95,12 +95,13 @@ var MONTHLY_DATA = [
     de:{st:185047,sa:16439,u18:34949,ylc:0,other:0,total:236435},
     gp:46820,gpPct:16.5,
     opex:{hr:101324,rent:16711,sales:11163,operating:23160,total:152358},
-    ebida:-105538,cash:54754,super_:47079,ato:724508,
-    debtTotal:2718544}
+    ebida:-105538,cash:54754,super_:30503,ato:724508,
+    debtTotal:1360204}
 ];
 
-var DEBT_CURRENT = {ato:724508,refund:0,commission:0,stExpenses:0,opex:0,payrollTax:75266};
-var DEBT_TOTAL = 2718544;
+/* Debt from xero_ap_debt.js: Trade $529,927 (Commission+Refund+Rent+OPEX) + Statutory $830,277 (ATO+Super+PayrollTax) = $1,360,204 */
+var DEBT_CURRENT = {ato:724508,refund:70589,commission:355450,stExpenses:0,opex:103888,payrollTax:75266};
+var DEBT_TOTAL = 1360204;
 
 var PREDICTIONS = {
   Apr:{col_e:null,col_d:197777,source:'AI 2-Month'},
