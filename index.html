@@ -89,16 +89,23 @@ var MONTHLY_DATA = [
     gp:404744,gpPct:65.7,
     opex:{hr:140781,rent:70970,sales:1204,operating:42944,total:255899},
     ebida:148846,cash:138215,super_:37839,ato:740216,
-    debtTotal:2085627}
+    debtTotal:2085627},
+  {month:'Mar',target:350000,
+    revenue:{st:135703,sa:30496,u18:13456,ylc:8820,other:94780,total:283255},
+    de:{st:185047,sa:16439,u18:34949,ylc:0,other:0,total:236435},
+    gp:46820,gpPct:16.5,
+    opex:{hr:101324,rent:16711,sales:11163,operating:23160,total:152358},
+    ebida:-105538,cash:54754,super_:47079,ato:724508,
+    debtTotal:2718544}
 ];
 
-var DEBT_CURRENT = {ato:740216,refund:80853,commission:429041,stExpenses:96,opex:835421,payrollTax:0};
-var DEBT_TOTAL = 740216+80853+429041+96+835421+0;
+var DEBT_CURRENT = {ato:724508,refund:0,commission:0,stExpenses:0,opex:0,payrollTax:75266};
+var DEBT_TOTAL = 2718544;
 
 var PREDICTIONS = {
-  Mar:{col_e:97734,col_d:null,source:'1-Month Accrued'},
   Apr:{col_e:null,col_d:197777,source:'AI 2-Month'},
-  May:{col_e:null,col_d:null,source:'Target'}
+  May:{col_e:null,col_d:null,source:'Target'},
+  Jun:{col_e:null,col_d:null,source:'Target'}
 };
 
 /* ========== UTILITIES ========== */
