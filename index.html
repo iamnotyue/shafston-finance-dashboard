@@ -131,7 +131,7 @@ var ytdTarget = MONTHLY_DATA.reduce(function(s,m){return s+m.target;},0);
 var ytdCompletion = ytdRevenue/ytdTarget*100;
 var annualCompletion = ytdRevenue/ANNUAL_TARGET*100;
 var projectedAnnual = (ytdRevenue/monthsElapsed)*12;
-var latestCash = MONTHLY_DATA[MONTHLY_DATA.length-1].cash;
+var latestCash = (function(){for(var i=MONTHLY_DATA.length-1;i>=0;i--){if(MONTHLY_DATA[i].cash>0)return MONTHLY_DATA[i].cash;}return 0;})();
 var ytdGP = MONTHLY_DATA.reduce(function(s,m){return s+m.gp;},0);
 var ytdGPPct = ytdGP/ytdRevenue*100;
 var ytdDE = MONTHLY_DATA.reduce(function(s,m){return s+m.de.total;},0);
@@ -181,10 +181,12 @@ var debtTrackingData = MONTHS.map(function(m,i){
   return {month:m, budget:Math.max(budgetDebt,0), actual:md&&md.debtTotal?md.debtTotal:null};
 });
 
-/* Cash forecast */
+/* Cash forecast — start from next month after last data month */
 var cashForecast = [];
 var prevCash = latestCash;
-['Apr','May','Jun'].forEach(function(m){
+var dataMonths = MONTHLY_DATA.map(function(d){return d.month;});
+var forecastMonths = MONTHS.filter(function(m){return dataMonths.indexOf(m)<0;}).slice(0,3);
+forecastMonths.forEach(function(m){
   var pred = PREDICTIONS[m]||{};
   var bestRev = pred.col_e||pred.col_d||MONTHLY_TARGETS[m];
   var predDE = Math.round(bestRev*0.45);
