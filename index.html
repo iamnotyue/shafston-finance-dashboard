@@ -93,17 +93,24 @@ var MONTHLY_DATA = [
     ebida:-18615,cash:138215,super_:37839,ato:740216,
     debtTotal:1383181},
   {month:'Mar',target:350000,
-    revenue:{st:135703,sa:30496,u18:13456,ylc:8820,other:94780,total:283255},
+    revenue:{st:135703,sa:30496,u18:18956,ylc:8820,other:96458,total:290432},
     de:{st:69259,sa:132227,u18:34949,ylc:7497,other:0,total:243932},
-    gp:39323,gpPct:13.9,
-    opex:{hr:84707,rent:16166,sales:11163,operating:22716,total:134752},
-    ebida:-95429,cash:54754,super_:30503,ato:724508,
-    debtTotal:1360204}
+    gp:46500,gpPct:16.0,
+    opex:{hr:103936,rent:5795,sales:11549,operating:94844,total:216124},
+    ebida:-169624,cash:54754,super_:30503,ato:724508,
+    debtTotal:1357541},
+  {month:'Apr',target:350000,
+    revenue:{st:27496,sa:0,u18:0,ylc:3528,other:9007,total:40031},
+    de:{st:31723,sa:4990,u18:0,ylc:0,other:0,total:36713},
+    gp:3318,gpPct:8.3,
+    opex:{hr:48909,rent:970,sales:0,operating:7779,total:57658},
+    ebida:-54340,cash:0,super_:30503,ato:724508,
+    debtTotal:1357541,partial:true}
 ];
 
 /* Current debt from xero_ap_debt.js — aligned to Debt Management Dashboard categories */
 var DEBT_CURRENT = {ato:724508,super_:30503,payrollTax:75266,rentOutgoing:68022,opex:35866,studyTour:0,refund:70589,commission:355450};
-var DEBT_TOTAL = 724508+30503+75266+68022+35866+0+70589+355450;
+var DEBT_TOTAL = 527264+830277; /* TRADE_PAYABLE $527,264 + STATUTORY $830,277 = $1,357,541 */
 
 var PREDICTIONS = {
   Apr:{col_e:206288,col_d:null,source:'1-Month Accrued'},
