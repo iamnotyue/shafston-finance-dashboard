@@ -76,46 +76,67 @@ var FY2025 = {
   }
 };
 
-/* Actual monthly data from Xero - Feb 2026 report */
+/* Actual monthly data from Xero — cash basis, data to 2026-07-31 */
 var MONTHLY_DATA = [
   {month:'Jan',target:350000,
-    revenue:{st:257420,sa:24947,u18:14452,ylc:-1185,other:127111,total:422745},
-    de:{st:44999,sa:35662,u18:21526,ylc:1885,other:13066,total:117138},
-    gp:305607,gpPct:72.3,
-    opex:{hr:108258,rent:23503,sales:26404,operating:32339,total:190504},
-    ebida:115103,cash:216746,super_:76827,ato:725312,
-    debtTotal:1496140},
+    revenue:{st:257420,sa:24947,u18:14453,ylc:-1185,other:127109,total:422745},
+    de:{st:6981,sa:55282,u18:21526,ylc:1885,other:24286,total:109960},
+    gp:312784,gpPct:74.0,
+    opex:{hr:110403,rent:16880,sales:41178,operating:24253,total:192714},
+    ebida:120071,cash:216746,super_:76827,ato:728508,
+    debtTotal:1569209},
   {month:'Feb',target:400000,
-    revenue:{st:286964,sa:19994,u18:54945,ylc:1124,other:62992,total:426019},
-    de:{st:107503,sa:84320,u18:37049,ylc:5612,other:2339,total:236823},
-    gp:189196,gpPct:44.4,
-    opex:{hr:142699,rent:35344,sales:9953,operating:19815,total:207811},
-    ebida:-18615,cash:138215,super_:37839,ato:740216,
-    debtTotal:1383181},
+    revenue:{st:286964,sa:19994,u18:54946,ylc:1125,other:62991,total:426019},
+    de:{st:90860,sa:89962,u18:37049,ylc:5612,other:2362,total:225845},
+    gp:200174,gpPct:47.0,
+    opex:{hr:143644,rent:8224,sales:20144,operating:23245,total:195257},
+    ebida:4917,cash:138215,super_:37964,ato:724508,
+    debtTotal:1464604},
   {month:'Mar',target:350000,
-    revenue:{st:135703,sa:30496,u18:18956,ylc:8820,other:96458,total:290432},
-    de:{st:69259,sa:132227,u18:34949,ylc:7497,other:0,total:243932},
-    gp:46500,gpPct:16.0,
-    opex:{hr:103936,rent:5795,sales:11549,operating:94844,total:216124},
-    ebida:-169624,cash:54754,super_:30503,ato:724508,
-    debtTotal:1357541},
+    revenue:{st:164161,sa:30496,u18:18956,ylc:8820,other:97508,total:319941},
+    de:{st:79778,sa:136421,u18:34949,ylc:0,other:3108,total:254256},
+    gp:65685,gpPct:20.5,
+    opex:{hr:98770,rent:5795,sales:554,operating:154572,total:259690},
+    ebida:-194006,cash:47566,super_:48035,ato:736774,
+    debtTotal:1462026},
   {month:'Apr',target:350000,
-    revenue:{st:36443,sa:4063,u18:866,ylc:7206,other:22335,total:70913},
-    de:{st:56494,sa:41248,u18:22674,ylc:174,other:0,total:120590},
-    gp:-49677,gpPct:-70.1,
-    opex:{hr:101496,rent:3240,sales:1946,operating:35168,total:141850},
-    ebida:-191527,cash:72477,super_:30503,ato:719508,
-    debtTotal:1326051,partial:true}
+    revenue:{st:37330,sa:8446,u18:4166,ylc:14603,other:27847,total:92393},
+    de:{st:66199,sa:67018,u18:35639,ylc:174,other:3165,total:172195},
+    gp:-79803,gpPct:-86.4,
+    opex:{hr:138282,rent:7240,sales:158,operating:34009,total:179689},
+    ebida:-259491,cash:82871,super_:43094,ato:731774,
+    debtTotal:1413548},
+  {month:'May',target:300000,
+    revenue:{st:104809,sa:1945,u18:38970,ylc:25062,other:55064,total:225850},
+    de:{st:21114,sa:26029,u18:26430,ylc:0,other:12115,total:85688},
+    gp:140163,gpPct:62.1,
+    opex:{hr:100893,rent:7265,sales:0,operating:21929,total:130087},
+    ebida:10075,cash:179745,super_:45124,ato:731774,
+    debtTotal:1380909},
+  {month:'Jun',target:350000,
+    revenue:{st:498336,sa:-7416,u18:12391,ylc:23616,other:80035,total:606961},
+    de:{st:125674,sa:35051,u18:27688,ylc:3550,other:7943,total:199906},
+    gp:407055,gpPct:67.1,
+    opex:{hr:107211,rent:16480,sales:8565,operating:54598,total:186854},
+    ebida:220201,cash:390417,super_:39624,ato:706150,
+    debtTotal:1250675},
+  {month:'Jul',target:700000,
+    revenue:{st:85432,sa:1823,u18:21677,ylc:12140,other:54415,total:175486},
+    de:{st:30768,sa:85418,u18:26278,ylc:11053,other:3424,total:156942},
+    gp:18544,gpPct:10.6,
+    opex:{hr:118229,rent:6269,sales:79,operating:44095,total:168672},
+    ebida:-150128,cash:182217,super_:34404,ato:627150,
+    debtTotal:1149957}
 ];
 
-/* Current debt from xero_ap_debt.js — aligned to Debt Management Dashboard categories */
-var DEBT_CURRENT = {ato:719508,super_:30503,payrollTax:75266,rentOutgoing:62122,opex:34670,studyTour:0,refund:59559,commission:344423};
-var DEBT_TOTAL = 500774+825277; /* TRADE_PAYABLE $500,774 + STATUTORY $825,277 = $1,326,051 (as of 2026-04-28) */
+/* Current debt from xero_ap_debt.js 2026-07-31 — aligned to Debt Management Dashboard categories */
+var DEBT_CURRENT = {ato:627150,super_:30503,payrollTax:75266,rentOutgoing:52317,opex:34641,studyTour:0,refund:18827,commission:311253};
+var DEBT_TOTAL = 417038+732919; /* TRADE_PAYABLE $417,038 + STATUTORY $732,919 = $1,149,957 (as of 2026-07-31) */
 
 var PREDICTIONS = {
-  Apr:{col_e:206288,col_d:null,source:'1-Month Accrued'},
-  May:{col_e:null,col_d:237263,source:'AI 2-Month'},
-  Jun:{col_e:null,col_d:null,source:'Target'}
+  Aug:{col_e:2980,col_d:null,source:'1-Month Accrued'},
+  Sep:{col_e:null,col_d:1989,source:'AI 2-Month'},
+  Oct:{col_e:null,col_d:null,source:'Target'}
 };
 
 /* ========== UTILITIES ========== */
@@ -860,7 +881,7 @@ function App(){
       ),
       h('div',{style:{display:'flex',alignItems:'center',gap:12}},
         h('div',{style:Object.assign({},S.badge,{background:scenarioColor+'22',color:scenarioColor,border:'1px solid '+scenarioColor})},scenarioLabel+' TRAJECTORY'),
-        h('div',{style:{fontSize:12,color:'#64748B'}},'Data: Feb 2026 | Generated: '+new Date().toLocaleDateString())
+        h('div',{style:{fontSize:12,color:'#64748B'}},'Data: '+MONTHLY_DATA[MONTHLY_DATA.length-1].month+' 2026 | Generated: '+new Date().toLocaleDateString())
       )
     ),
     h('div',{style:S.nav},
